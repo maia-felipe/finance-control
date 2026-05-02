@@ -1,0 +1,49 @@
+import { useState, useEffect } from 'react'
+import { Navbar } from './components/layout/Navbar'
+import type { Tab } from './components/layout/Navbar'
+import { DashboardPage } from './components/dashboard/DashboardPage'
+import { TransactionsPage } from './components/transactions/TransactionsPage'
+import { BudgetPage } from './components/budget/BudgetPage'
+import { CategoriesPage } from './components/categories/CategoriesPage'
+import { ReportsPage } from './components/reports/ReportsPage'
+import { InvestmentsPage } from './components/investments/InvestmentsPage'
+import { currentMonth } from './utils/formatDate'
+import { migrateFromLocalStorage } from './lib/migrate'
+
+function App() {
+  const [tab, setTab] = useState<Tab>('dashboard')
+  const [month, setMonth] = useState(currentMonth())
+  const [migrating, setMigrating] = useState(true)
+
+  useEffect(() => {
+    migrateFromLocalStorage().finally(() => setMigrating(false))
+  }, [])
+
+  if (migrating) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-slate-500">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Navbar activeTab={tab} onTabChange={setTab} month={month} onMonthChange={setMonth} />
+      <main className="pb-20 md:pb-6">
+        {tab === 'dashboard' && <DashboardPage month={month} />}
+        {tab === 'expenses' && <TransactionsPage month={month} type="expense" onMonthChange={setMonth} />}
+        {tab === 'income' && <TransactionsPage month={month} type="income" onMonthChange={setMonth} />}
+        {tab === 'investments' && <InvestmentsPage />}
+        {tab === 'budget' && <BudgetPage month={month} />}
+        {tab === 'categories' && <CategoriesPage />}
+        {tab === 'reports' && <ReportsPage month={month} />}
+      </main>
+    </div>
+  )
+}
+
+export default App

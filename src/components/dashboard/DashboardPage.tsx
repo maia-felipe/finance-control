@@ -1,0 +1,208 @@
+import { useMemo, useState } from 'react'
+import { useTransactions } from '../../hooks/useTransactions'
+import { useCategories } from '../../hooks/useCategories'
+import { useBudget } from '../../hooks/useBudget'
+import { formatCurrency } from '../../utils/formatCurrency'
+import { formatMonth } from '../../utils/formatDate'
+import { Card } from '../ui/Card'
+import { PeriodSelector } from '../ui/PeriodSelector'
+import type { Period } from '../ui/PeriodSelector'
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
+} from 'recharts'
+import { format, subMonths, parseISO } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+
+interface DashboardPageProps {
+  month: string
+}
+
+function SummaryCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
+  return (
+    <Card className="flex-1">
+      <p className="text-xs text-slate-500 mb-1">{label}</p>
+      <p className={`text-xl font-bold ${color}`}>{value}</p>
+      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
+    </Card>
+  )
+}
+
+function ProgressBar({ value, max, color = 'bg-indigo-500' }: { value: number; max: number; color?: string }) {
+  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
+  const barColor = pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-amber-500' : color
+  return (
+    <div className="w-full bg-slate-100 rounded-full h-2">
+      <div className={`${barColor} h-2 rounded-full transition-all`} style={{ width: `${pct}%` }} />
+    </div>
+  )
+}
+
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload?.length) {
+    return (
+      <div className="bg-white border border-slate-100 rounded-xl shadow-lg px-3 py-2 text-sm">
+        <p className="font-medium text-slate-700">{payload[0].name}</p>
+        <p className="text-slate-500">{formatCurrency(payload[0].value)}</p>
+      </div>
+    )
+  }
+  return null
+}
+
+export function DashboardPage({ month }: DashboardPageProps) {
+  const { getByMonth } = useTransactions()
+  const { categories, getCategoryById } = useCategories()
+  const { getBudget } = useBudget()
+  const [period, setPeriod] = useState<Period>(6)
+
+  const transactions = getByMonth(month)
+  const budget = getBudget(month)
+
+  const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
+  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const balance = totalIncome - totalExpense
+
+  // Category breakdown for donut chart
+  const categoryData = useMemo(() => {
+    const map: Record<string, number> = {}
+    transactions.filter(t => t.type === 'expense').forEach(t => {
+      map[t.categoryId] = (map[t.categoryId] ?? 0) + t.amount
+    })
+    return Object.entries(map)
+      .map(([id, value]) => ({ name: getCategoryById(id)?.name ?? '?', value, color: getCategoryById(id)?.color ?? '#6b7280' }))
+      .sort((a, b) => b.value - a.value)
+  }, [transactions, getCategoryById])
+
+  // History bar chart
+  const historyData = useMemo(() => {
+    return Array.from({ length: period }, (_, i) => {
+      const m = format(subMonths(parseISO(`${month}-01`), period - 1 - i), 'yyyy-MM')
+      const ts = getByMonth(m)
+      const b = getBudget(m)
+      return {
+        name: format(parseISO(`${m}-01`), 'MMM', { locale: ptBR }),
+        Gasto: ts.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+        Planejado: b.totalLimit,
+        Receita: ts.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
+      }
+    })
+  }, [month, period, getByMonth, getBudget])
+
+  // Category progress bars
+  const expenseCategories = categories.filter(c => c.type === 'expense' || c.type === 'both')
+  const catProgress = expenseCategories
+    .map(cat => ({
+      cat,
+      spent: transactions.filter(t => t.type === 'expense' && t.categoryId === cat.id).reduce((s, t) => s + t.amount, 0),
+      limit: budget.categoryLimits[cat.id] ?? 0,
+    }))
+    .filter(c => c.spent > 0 || c.limit > 0)
+
+  const budgetPct = budget.totalLimit > 0 ? Math.round((totalExpense / budget.totalLimit) * 100) : null
+
+  return (
+    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      <h1 className="text-xl font-bold text-slate-800 mb-6 capitalize">{formatMonth(month)}</h1>
+
+      {/* Summary cards */}
+      <div className="flex gap-3 mb-6 flex-wrap">
+        <SummaryCard label="Saldo" value={formatCurrency(balance)} color={balance >= 0 ? 'text-emerald-600' : 'text-red-500'} />
+        <SummaryCard label="Receitas" value={formatCurrency(totalIncome)} color="text-emerald-600" />
+        <SummaryCard
+          label="Gastos"
+          value={formatCurrency(totalExpense)}
+          color="text-slate-800"
+          sub={budget.totalLimit > 0 ? `${budgetPct}% do orçamento (${formatCurrency(budget.totalLimit)})` : undefined}
+        />
+      </div>
+
+      {/* Budget progress */}
+      {budget.totalLimit > 0 && (
+        <Card className="mb-5">
+          <div className="flex justify-between text-sm mb-2">
+            <span className="font-medium text-slate-700">Orçamento geral</span>
+            <span className="text-slate-500">{formatCurrency(totalExpense)} / {formatCurrency(budget.totalLimit)}</span>
+          </div>
+          <ProgressBar value={totalExpense} max={budget.totalLimit} />
+        </Card>
+      )}
+
+      {/* Charts row */}
+      <div className="grid md:grid-cols-2 gap-5 mb-5">
+        {/* Donut chart */}
+        <Card>
+          <p className="text-sm font-semibold text-slate-700 mb-4">Gastos por categoria</p>
+          {categoryData.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-10">Nenhum gasto registrado.</p>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={categoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={2}>
+                    {categoryData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2">
+                {categoryData.map((d, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-xs text-slate-600">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                    {d.name}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </Card>
+
+        {/* Bar chart - history */}
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-semibold text-slate-700">Últimos {period} meses</p>
+            <PeriodSelector value={period} onChange={setPeriod} />
+          </div>
+          <ResponsiveContainer width="100%" height={230}>
+            <BarChart data={historyData} barSize={8}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${(v/1000).toFixed(0)}k`} width={45} />
+              <Tooltip formatter={(v) => formatCurrency(Number(v))} contentStyle={{ borderRadius: 12, border: '1px solid #f1f5f9', fontSize: 12 }} />
+              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="Receita" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Gasto" fill="#6366f1" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Planejado" fill="#e2b00a" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Card>
+      </div>
+
+      {/* Category progress */}
+      {catProgress.length > 0 && (
+        <Card>
+          <p className="text-sm font-semibold text-slate-700 mb-4">Progresso por categoria</p>
+          <div className="flex flex-col gap-3">
+            {catProgress.map(({ cat, spent, limit }) => (
+              <div key={cat.id}>
+                <div className="flex justify-between text-xs text-slate-600 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                    {cat.name}
+                  </div>
+                  <span>
+                    {formatCurrency(spent)}
+                    {limit > 0 && <span className="text-slate-400"> / {formatCurrency(limit)}</span>}
+                  </span>
+                </div>
+                {limit > 0 && <ProgressBar value={spent} max={limit} />}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  )
+}
