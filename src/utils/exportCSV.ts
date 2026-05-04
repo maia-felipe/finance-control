@@ -8,7 +8,7 @@ export const exportToCSV = (transactions: Transaction[], categories: Category[],
     const cat = categories.find(c => c.id === t.categoryId)
     return [
       formatDate(t.date),
-      t.type === 'income' ? 'Receita' : 'Gasto',
+      t.type === 'income' ? 'Receita' : t.type === 'investment' ? 'Investimento' : 'Gasto',
       cat?.name ?? '',
       t.description,
       formatCurrency(t.amount),

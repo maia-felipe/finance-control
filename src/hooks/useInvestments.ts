@@ -23,7 +23,7 @@ export function useInvestments() {
       })
   }, [])
 
-  const addInvestment = (data: Omit<Investment, 'id' | 'lastUpdated'>) => {
+  const addInvestment = (data: Omit<Investment, 'id' | 'lastUpdated'>): string => {
     const newInv: Investment = { ...data, id: generateId(), lastUpdated: todayISO() }
     setInvestments(prev => [newInv, ...prev])
     supabase.from('investments').insert({
@@ -34,6 +34,7 @@ export function useInvestments() {
     }).then(({ error }) => {
       if (error) console.error('addInvestment:', error)
     })
+    return newInv.id
   }
 
   const updateInvestment = (id: string, data: Partial<Omit<Investment, 'id'>>) => {

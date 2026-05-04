@@ -1,6 +1,6 @@
-export type TransactionType = 'income' | 'expense'
+export type TransactionType = 'income' | 'expense' | 'investment'
 
-export type CategoryType = 'income' | 'expense' | 'both'
+export type CategoryType = 'income' | 'expense' | 'investment' | 'both'
 
 export interface Category {
   id: string
@@ -17,6 +17,7 @@ export interface Transaction {
   categoryId: string
   description: string
   recurring: boolean
+  investmentId?: string
 }
 
 export interface Budget {

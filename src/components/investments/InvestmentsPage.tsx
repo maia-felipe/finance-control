@@ -1,14 +1,19 @@
 import { useState } from 'react'
 import { useInvestments } from '../../hooks/useInvestments'
-import type { Investment } from '../../types'
+import { useTransactions } from '../../hooks/useTransactions'
+import { useCategories } from '../../hooks/useCategories'
+import type { Investment, Transaction } from '../../types'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { Badge } from '../ui/Badge'
 import { InvestmentForm } from './InvestmentForm'
+import { TransactionForm } from '../transactions/TransactionForm'
 import { formatCurrency } from '../../utils/formatCurrency'
-import { formatDate } from '../../utils/formatDate'
+import { formatDate, formatMonth, monthFromDate } from '../../utils/formatDate'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+
+const DEFAULT_INVESTMENT_CATEGORY_COLOR = '#8b5cf6'
 
 function SummaryCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
   return (
@@ -84,11 +89,62 @@ function UpdateValueModal({ investment, onSave, onClose }: UpdateValueModalProps
   )
 }
 
-export function InvestmentsPage() {
+interface InvestmentsPageProps {
+  month: string
+  onMonthChange: (month: string) => void
+}
+
+export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) {
   const { investments, addInvestment, updateInvestment, deleteInvestment } = useInvestments()
+  const { getByMonth, addTransaction, updateTransaction, deleteTransaction, deleteByInvestmentId } = useTransactions()
+  const { categories, addCategory, getCategoryById } = useCategories()
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<Investment | null>(null)
   const [updatingValue, setUpdatingValue] = useState<Investment | null>(null)
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+
+  const investmentTxs = getByMonth(month)
+    .filter(t => t.type === 'investment')
+    .sort((a, b) => b.date.localeCompare(a.date))
+  const totalInvestedMonth = investmentTxs.reduce((s, t) => s + t.amount, 0)
+
+  const ensureInvestmentCategoryId = (): string => {
+    const existing = categories.find(c => c.type === 'investment')
+    if (existing) return existing.id
+    return addCategory({ name: 'Investimentos', type: 'investment', color: DEFAULT_INVESTMENT_CATEGORY_COLOR })
+  }
+
+  const handleAddInvestment = (data: Omit<Investment, 'id' | 'lastUpdated'>) => {
+    const investmentId = addInvestment(data)
+    if (data.amountInvested > 0) {
+      const categoryId = ensureInvestmentCategoryId()
+      addTransaction({
+        date: data.startDate,
+        amount: data.amountInvested,
+        type: 'investment',
+        categoryId,
+        description: data.name,
+        recurring: false,
+        investmentId,
+      })
+      const txMonth = monthFromDate(data.startDate)
+      if (txMonth !== month) onMonthChange(txMonth)
+    }
+    setShowAdd(false)
+  }
+
+  const handleDeleteInvestment = (id: string) => {
+    deleteInvestment(id)
+    deleteByInvestmentId(id)
+  }
+
+  const handleEditTx = (data: Omit<Transaction, 'id'>) => {
+    if (!editingTx) return
+    updateTransaction(editingTx.id, data)
+    setEditingTx(null)
+    const txMonth = monthFromDate(data.date)
+    if (txMonth !== month) onMonthChange(txMonth)
+  }
 
   const totalInvested = investments.reduce((s, inv) => s + inv.amountInvested, 0)
   const totalCurrent = investments.reduce((s, inv) => s + inv.currentValue, 0)
@@ -156,7 +212,7 @@ export function InvestmentsPage() {
                     <div className="flex gap-1 flex-shrink-0">
                       <Button size="sm" variant="ghost" onClick={() => setUpdatingValue(inv)} title="Atualizar valor">💰</Button>
                       <Button size="sm" variant="ghost" onClick={() => setEditing(inv)}>✏️</Button>
-                      <Button size="sm" variant="danger" onClick={() => deleteInvestment(inv.id)}>🗑️</Button>
+                      <Button size="sm" variant="danger" onClick={() => handleDeleteInvestment(inv.id)}>🗑️</Button>
                     </div>
                   </div>
 
@@ -219,9 +275,59 @@ export function InvestmentsPage() {
         </div>
       )}
 
+      {/* Aportes do mês */}
+      <div className="mt-6">
+        <div className="mb-3">
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Aportes — <span className="capitalize">{formatMonth(month)}</span></h2>
+          <p className="text-sm font-semibold text-indigo-600 mt-0.5">{formatCurrency(totalInvestedMonth)}</p>
+        </div>
+        <Card className="!p-0 overflow-hidden">
+          {investmentTxs.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">Nenhum aporte registrado neste mês.</p>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {investmentTxs.map(t => {
+                const cat = getCategoryById(t.categoryId)
+                return (
+                  <div key={t.id} className="flex items-center justify-between px-5 py-3.5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-2 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: cat?.color ?? '#8b5cf6' }} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{t.description}</p>
+                        <p className="text-xs text-slate-400">
+                          {formatDate(t.date)} · {cat?.name ?? '—'}
+                          {t.recurring && ' · 🔄'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                      <span className="text-sm font-semibold text-indigo-600">{formatCurrency(t.amount)}</span>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => setEditingTx(t)}>✏️</Button>
+                        <Button size="sm" variant="danger" onClick={() => deleteTransaction(t.id)}>🗑️</Button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <Modal open={!!editingTx} onClose={() => setEditingTx(null)} title="Editar aporte">
+        {editingTx && (
+          <TransactionForm
+            initial={editingTx}
+            onSubmit={handleEditTx}
+            onCancel={() => setEditingTx(null)}
+          />
+        )}
+      </Modal>
+
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Novo investimento">
         <InvestmentForm
-          onSubmit={data => { addInvestment(data); setShowAdd(false) }}
+          onSubmit={handleAddInvestment}
           onCancel={() => setShowAdd(false)}
         />
       </Modal>

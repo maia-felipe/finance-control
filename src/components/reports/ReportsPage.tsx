@@ -30,13 +30,15 @@ export function ReportsPage({ month }: ReportsPageProps) {
       const ts = getByMonth(m)
       const income = ts.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
       const expense = ts.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+      const invested = ts.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0)
       const budget = getBudget(m)
       return {
         name: format(parseISO(`${m}-01`), 'MMM/yy', { locale: ptBR }),
         month: m,
         Receitas: income,
         Gastos: expense,
-        Saldo: income - expense,
+        Investido: invested,
+        Saldo: income - expense - invested,
         Orçamento: budget.totalLimit,
       }
     })
@@ -76,6 +78,7 @@ export function ReportsPage({ month }: ReportsPageProps) {
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
             <Line type="monotone" dataKey="Receitas" stroke="#10b981" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="Gastos" stroke="#6366f1" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="Investido" stroke="#8b5cf6" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="Saldo" stroke="#f59e0b" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -91,6 +94,7 @@ export function ReportsPage({ month }: ReportsPageProps) {
                 <th className="text-left pb-2 font-medium">Mês</th>
                 <th className="text-right pb-2 font-medium">Receitas</th>
                 <th className="text-right pb-2 font-medium">Gastos</th>
+                <th className="text-right pb-2 font-medium">Investido</th>
                 <th className="text-right pb-2 font-medium">Orçamento</th>
                 <th className="text-right pb-2 font-medium">Saldo</th>
               </tr>
@@ -101,6 +105,7 @@ export function ReportsPage({ month }: ReportsPageProps) {
                   <td className="py-2.5 text-slate-700 capitalize">{row.name}</td>
                   <td className="py-2.5 text-right text-emerald-600">{formatCurrency(row.Receitas)}</td>
                   <td className="py-2.5 text-right text-slate-700">{formatCurrency(row.Gastos)}</td>
+                  <td className="py-2.5 text-right text-indigo-600">{formatCurrency(row.Investido)}</td>
                   <td className="py-2.5 text-right text-slate-400">{row.Orçamento > 0 ? formatCurrency(row.Orçamento) : '—'}</td>
                   <td className={`py-2.5 text-right font-medium ${row.Saldo >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                     {formatCurrency(row.Saldo)}

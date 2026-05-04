@@ -45,6 +45,7 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
       >
         <option value="expense">Gasto</option>
         <option value="income">Receita</option>
+        <option value="investment">Investimento</option>
         <option value="both">Ambos</option>
       </Select>
       <div className="flex flex-col gap-1">

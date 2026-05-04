@@ -15,6 +15,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useCategories } from '../../hooks/useCategories'
+import { useTransactions } from '../../hooks/useTransactions'
 import type { Category } from '../../types'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
@@ -109,16 +110,27 @@ function SortableSection({ title, categories, onReorder, onEdit, onDelete, empty
 
 export function CategoriesPage() {
   const { categories, addCategory, updateCategory, deleteCategory, reorderCategories } = useCategories()
+  const { retypeByCategory } = useTransactions()
   const [showAdd, setShowAdd] = useState(false)
-  const [addType, setAddType] = useState<'expense' | 'income'>('expense')
+  const [addType, setAddType] = useState<'expense' | 'income' | 'investment'>('expense')
   const [editing, setEditing] = useState<Category | null>(null)
 
   const expenseCategories = categories.filter(c => c.type === 'expense' || c.type === 'both')
   const incomeCategories = categories.filter(c => c.type === 'income' || c.type === 'both')
+  const investmentCategories = categories.filter(c => c.type === 'investment')
 
-  const handleAdd = (type: 'expense' | 'income') => {
+  const handleAdd = (type: 'expense' | 'income' | 'investment') => {
     setAddType(type)
     setShowAdd(true)
+  }
+
+  const handleEditSubmit = (data: Omit<Category, 'id'>) => {
+    if (!editing) return
+    updateCategory(editing.id, data)
+    if (data.type !== editing.type && data.type !== 'both') {
+      retypeByCategory(editing.id, data.type)
+    }
+    setEditing(null)
   }
 
   return (
@@ -134,7 +146,7 @@ export function CategoriesPage() {
           <SortableSection
             title=""
             categories={expenseCategories}
-            onReorder={ids => reorderCategories([...ids, ...incomeCategories.map(c => c.id)])}
+            onReorder={ids => reorderCategories([...ids, ...incomeCategories.map(c => c.id), ...investmentCategories.map(c => c.id)])}
             onEdit={setEditing}
             onDelete={deleteCategory}
             emptyMsg="Nenhuma categoria de gasto."
@@ -149,10 +161,25 @@ export function CategoriesPage() {
           <SortableSection
             title=""
             categories={incomeCategories}
-            onReorder={ids => reorderCategories([...expenseCategories.map(c => c.id), ...ids])}
+            onReorder={ids => reorderCategories([...expenseCategories.map(c => c.id), ...ids, ...investmentCategories.map(c => c.id)])}
             onEdit={setEditing}
             onDelete={deleteCategory}
             emptyMsg="Nenhuma categoria de receita."
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Investimentos</h2>
+            <Button size="sm" variant="secondary" onClick={() => handleAdd('investment')}>+ Adicionar</Button>
+          </div>
+          <SortableSection
+            title=""
+            categories={investmentCategories}
+            onReorder={ids => reorderCategories([...expenseCategories.map(c => c.id), ...incomeCategories.map(c => c.id), ...ids])}
+            onEdit={setEditing}
+            onDelete={deleteCategory}
+            emptyMsg="Nenhuma categoria de investimento."
           />
         </div>
       </div>
@@ -169,7 +196,7 @@ export function CategoriesPage() {
         {editing && (
           <CategoryForm
             initial={editing}
-            onSubmit={data => { updateCategory(editing.id, data); setEditing(null) }}
+            onSubmit={handleEditSubmit}
             onCancel={() => setEditing(null)}
           />
         )}

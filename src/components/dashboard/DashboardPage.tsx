@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useTransactions } from '../../hooks/useTransactions'
 import { useCategories } from '../../hooks/useCategories'
 import { useBudget } from '../../hooks/useBudget'
+import { useInvestments } from '../../hooks/useInvestments'
 import { formatCurrency } from '../../utils/formatCurrency'
 import { formatMonth } from '../../utils/formatDate'
 import { Card } from '../ui/Card'
@@ -51,9 +52,10 @@ const CustomTooltip = ({ active, payload }: any) => {
 }
 
 export function DashboardPage({ month }: DashboardPageProps) {
-  const { getByMonth } = useTransactions()
+  const { getByMonth, getCumulativeBalance } = useTransactions()
   const { categories, getCategoryById } = useCategories()
   const { getBudget } = useBudget()
+  const { investments } = useInvestments()
   const [period, setPeriod] = useState<Period>(6)
 
   const transactions = getByMonth(month)
@@ -61,7 +63,11 @@ export function DashboardPage({ month }: DashboardPageProps) {
 
   const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
   const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
-  const balance = totalIncome - totalExpense
+  const investmentsCurrentValue = investments.reduce((s, inv) => s + inv.currentValue, 0)
+  const investmentsAmountInvested = investments.reduce((s, inv) => s + inv.amountInvested, 0)
+  const investmentsGain = investmentsCurrentValue - investmentsAmountInvested
+  const investmentsGainPct = investmentsAmountInvested > 0 ? (investmentsGain / investmentsAmountInvested) * 100 : 0
+  const balance = getCumulativeBalance(month)
 
   // Category breakdown for donut chart
   const categoryData = useMemo(() => {
@@ -85,6 +91,7 @@ export function DashboardPage({ month }: DashboardPageProps) {
         Gasto: ts.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
         Planejado: b.totalLimit,
         Receita: ts.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
+        Investido: ts.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
       }
     })
   }, [month, period, getByMonth, getBudget])
@@ -114,6 +121,12 @@ export function DashboardPage({ month }: DashboardPageProps) {
           value={formatCurrency(totalExpense)}
           color="text-slate-800"
           sub={budget.totalLimit > 0 ? `${budgetPct}% do orçamento (${formatCurrency(budget.totalLimit)})` : undefined}
+        />
+        <SummaryCard
+          label="Investido"
+          value={formatCurrency(investmentsCurrentValue)}
+          color="text-indigo-600"
+          sub={investmentsAmountInvested > 0 ? `${investmentsGain >= 0 ? '+' : ''}${formatCurrency(investmentsGain)} (${investmentsGainPct >= 0 ? '+' : ''}${investmentsGainPct.toFixed(2)}%)` : undefined}
         />
       </div>
 
@@ -174,6 +187,7 @@ export function DashboardPage({ month }: DashboardPageProps) {
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="Receita" fill="#10b981" radius={[4, 4, 0, 0]} />
               <Bar dataKey="Gasto" fill="#6366f1" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Investido" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
               <Bar dataKey="Planejado" fill="#e2b00a" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

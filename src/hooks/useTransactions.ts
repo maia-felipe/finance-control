@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import type { Transaction } from '../types'
+import type { Transaction, TransactionType } from '../types'
 import { generateId } from '../utils/generateId'
 
 export function useTransactions() {
@@ -17,6 +17,7 @@ export function useTransactions() {
           id: row.id, date: row.date, amount: row.amount,
           type: row.type, categoryId: row.category_id,
           description: row.description, recurring: row.recurring,
+          investmentId: row.investment_id ?? undefined,
         })))
         setLoading(false)
       })
@@ -28,6 +29,7 @@ export function useTransactions() {
     supabase.from('transactions').insert({
       id: newTx.id, date: newTx.date, amount: newTx.amount, type: newTx.type,
       category_id: newTx.categoryId, description: newTx.description, recurring: newTx.recurring,
+      investment_id: newTx.investmentId ?? null,
     }).then(({ error }) => {
       if (error) {
         console.error('addTransaction:', error)
@@ -59,5 +61,24 @@ export function useTransactions() {
 
   const getByMonth = (month: string) => transactions.filter(t => t.date.startsWith(month))
 
-  return { transactions, loading, addTransaction, updateTransaction, deleteTransaction, getByMonth }
+  const getCumulativeBalance = (month: string) =>
+    transactions
+      .filter(t => t.date.slice(0, 7) <= month)
+      .reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0)
+
+  const retypeByCategory = (categoryId: string, newType: TransactionType) => {
+    setTransactions(prev => prev.map(t => t.categoryId === categoryId ? { ...t, type: newType } : t))
+    supabase.from('transactions').update({ type: newType }).eq('category_id', categoryId).then(({ error }) => {
+      if (error) console.error('retypeByCategory:', error)
+    })
+  }
+
+  const deleteByInvestmentId = (investmentId: string) => {
+    setTransactions(prev => prev.filter(t => t.investmentId !== investmentId))
+    supabase.from('transactions').delete().eq('investment_id', investmentId).then(({ error }) => {
+      if (error) console.error('deleteByInvestmentId:', error)
+    })
+  }
+
+  return { transactions, loading, addTransaction, updateTransaction, deleteTransaction, getByMonth, getCumulativeBalance, retypeByCategory, deleteByInvestmentId }
 }

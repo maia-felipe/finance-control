@@ -42,7 +42,7 @@ export function useCategories() {
       })
   }, [])
 
-  const addCategory = (data: Omit<Category, 'id'>) => {
+  const addCategory = (data: Omit<Category, 'id'>): string => {
     const newCat: Category = { ...data, id: generateId() }
     setCategories(prev => {
       supabase.from('categories').insert({
@@ -53,6 +53,7 @@ export function useCategories() {
       })
       return [...prev, newCat]
     })
+    return newCat.id
   }
 
   const updateCategory = (id: string, data: Partial<Omit<Category, 'id'>>) => {

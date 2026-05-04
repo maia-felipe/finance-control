@@ -66,6 +66,7 @@ export function TransactionForm({ initial, onSubmit, onCancel }: TransactionForm
         >
           <option value="expense">Gasto</option>
           <option value="income">Receita</option>
+          <option value="investment">Investimento</option>
         </Select>
       </div>
 
@@ -107,7 +108,7 @@ export function TransactionForm({ initial, onSubmit, onCancel }: TransactionForm
           onChange={e => setRecurring(e.target.checked)}
           className="rounded border-slate-300"
         />
-        Gasto/receita recorrente
+        Recorrente
       </label>
 
       <div className="flex gap-2 justify-end pt-2">

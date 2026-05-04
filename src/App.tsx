@@ -37,7 +37,7 @@ function App() {
         {tab === 'dashboard' && <DashboardPage month={month} />}
         {tab === 'expenses' && <TransactionsPage month={month} type="expense" onMonthChange={setMonth} />}
         {tab === 'income' && <TransactionsPage month={month} type="income" onMonthChange={setMonth} />}
-        {tab === 'investments' && <InvestmentsPage />}
+        {tab === 'investments' && <InvestmentsPage month={month} onMonthChange={setMonth} />}
         {tab === 'budget' && <BudgetPage month={month} />}
         {tab === 'categories' && <CategoriesPage />}
         {tab === 'reports' && <ReportsPage month={month} />}
