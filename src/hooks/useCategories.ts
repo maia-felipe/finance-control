@@ -28,6 +28,7 @@ export function useCategories() {
         if (data && data.length > 0) {
           setCategories(data.map(row => ({
             id: row.id, name: row.name, type: row.type, color: row.color,
+            excludeFromCharts: row.exclude_from_charts ?? false,
           })))
         } else if (!localStorage.getItem('fc_migrated')) {
           // Seed padrão na primeira vez
@@ -48,6 +49,7 @@ export function useCategories() {
       supabase.from('categories').insert({
         id: newCat.id, name: newCat.name, type: newCat.type,
         color: newCat.color, sort_order: prev.length,
+        exclude_from_charts: newCat.excludeFromCharts ?? false,
       }).then(({ error }) => {
         if (error) console.error('addCategory:', error)
       })
@@ -58,7 +60,10 @@ export function useCategories() {
 
   const updateCategory = (id: string, data: Partial<Omit<Category, 'id'>>) => {
     setCategories(prev => prev.map(c => c.id === id ? { ...c, ...data } : c))
-    supabase.from('categories').update(data).eq('id', id).then(({ error }) => {
+    const { excludeFromCharts, ...rest } = data
+    const dbData: Record<string, unknown> = { ...rest }
+    if (excludeFromCharts !== undefined) dbData.exclude_from_charts = excludeFromCharts
+    supabase.from('categories').update(dbData).eq('id', id).then(({ error }) => {
       if (error) console.error('updateCategory:', error)
     })
   }

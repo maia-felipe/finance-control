@@ -7,6 +7,7 @@ export interface Category {
   name: string
   type: CategoryType
   color: string
+  excludeFromCharts?: boolean
 }
 
 export interface Transaction {
