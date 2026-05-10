@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { AuthPage } from './components/auth/AuthPage'
 import { Navbar } from './components/layout/Navbar'
 import type { Tab } from './components/layout/Navbar'
 import { DashboardPage } from './components/dashboard/DashboardPage'
@@ -8,18 +10,13 @@ import { CategoriesPage } from './components/categories/CategoriesPage'
 import { ReportsPage } from './components/reports/ReportsPage'
 import { InvestmentsPage } from './components/investments/InvestmentsPage'
 import { currentMonth } from './utils/formatDate'
-import { migrateFromLocalStorage } from './lib/migrate'
 
-function App() {
+function AppContent() {
+  const { user, loading } = useAuth()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [month, setMonth] = useState(currentMonth())
-  const [migrating, setMigrating] = useState(true)
 
-  useEffect(() => {
-    migrateFromLocalStorage().finally(() => setMigrating(false))
-  }, [])
-
-  if (migrating) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
@@ -29,6 +26,8 @@ function App() {
       </div>
     )
   }
+
+  if (!user) return <AuthPage />
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -43,6 +42,14 @@ function App() {
         {tab === 'reports' && <ReportsPage month={month} />}
       </main>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   )
 }
 

@@ -1,4 +1,5 @@
 import { MonthSelector } from './MonthSelector'
+import { useAuth } from '../../contexts/AuthContext'
 
 type Tab = 'dashboard' | 'expenses' | 'income' | 'investments' | 'budget' | 'categories' | 'reports'
 
@@ -20,6 +21,7 @@ const tabs: { id: Tab; label: string; emoji: string }[] = [
 ]
 
 export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarProps) {
+  const { user, signOut } = useAuth()
   return (
     <>
       {/* Desktop navbar */}
@@ -40,13 +42,36 @@ export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarP
             </button>
           ))}
         </div>
-        <MonthSelector month={month} onChange={onMonthChange} />
+        <div className="flex items-center gap-3">
+          <MonthSelector month={month} onChange={onMonthChange} />
+          {user && (
+            <div className="flex items-center gap-2 pl-3 border-l border-slate-100">
+              <span className="text-xs text-slate-500 truncate max-w-45" title={user.email ?? ''}>{user.email}</span>
+              <button
+                onClick={signOut}
+                className="text-xs text-slate-500 hover:text-red-500 cursor-pointer transition"
+              >
+                Sair
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Mobile header */}
       <header className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 sticky top-0 z-40">
         <span className="text-base font-bold text-indigo-600">💰 FinanControl</span>
-        <MonthSelector month={month} onChange={onMonthChange} />
+        <div className="flex items-center gap-2">
+          <MonthSelector month={month} onChange={onMonthChange} />
+          {user && (
+            <button
+              onClick={signOut}
+              className="text-xs text-slate-500 hover:text-red-500 cursor-pointer pl-2 border-l border-slate-100"
+            >
+              Sair
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Mobile bottom nav */}

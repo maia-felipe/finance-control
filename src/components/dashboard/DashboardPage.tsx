@@ -69,16 +69,21 @@ export function DashboardPage({ month }: DashboardPageProps) {
   const investmentsGainPct = investmentsAmountInvested > 0 ? (investmentsGain / investmentsAmountInvested) * 100 : 0
   const balance = getCumulativeBalance(month)
 
+  const excludedFromCharts = useMemo(
+    () => new Set(categories.filter(c => c.excludeFromCharts).map(c => c.id)),
+    [categories]
+  )
+
   // Category breakdown for donut chart
   const categoryData = useMemo(() => {
     const map: Record<string, number> = {}
-    transactions.filter(t => t.type === 'expense').forEach(t => {
-      map[t.categoryId] = (map[t.categoryId] ?? 0) + t.amount
-    })
+    transactions
+      .filter(t => t.type === 'expense' && !excludedFromCharts.has(t.categoryId))
+      .forEach(t => { map[t.categoryId] = (map[t.categoryId] ?? 0) + t.amount })
     return Object.entries(map)
       .map(([id, value]) => ({ name: getCategoryById(id)?.name ?? '?', value, color: getCategoryById(id)?.color ?? '#6b7280' }))
       .sort((a, b) => b.value - a.value)
-  }, [transactions, getCategoryById])
+  }, [transactions, getCategoryById, excludedFromCharts])
 
   // History bar chart
   const historyData = useMemo(() => {
@@ -88,13 +93,13 @@ export function DashboardPage({ month }: DashboardPageProps) {
       const b = getBudget(m)
       return {
         name: format(parseISO(`${m}-01`), 'MMM', { locale: ptBR }),
-        Gasto: ts.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+        Gasto: ts.filter(t => t.type === 'expense' && !excludedFromCharts.has(t.categoryId)).reduce((s, t) => s + t.amount, 0),
         Planejado: b.totalLimit,
         Receita: ts.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
         Investido: ts.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
       }
     })
-  }, [month, period, getByMonth, getBudget])
+  }, [month, period, getByMonth, getBudget, excludedFromCharts])
 
   // Category progress bars
   const expenseCategories = categories.filter(c => c.type === 'expense' || c.type === 'both')

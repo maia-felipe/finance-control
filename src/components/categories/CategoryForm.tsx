@@ -20,12 +20,13 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
   const [name, setName] = useState(initial?.name ?? '')
   const [type, setType] = useState<CategoryType>(initial?.type ?? 'expense')
   const [color, setColor] = useState(initial?.color ?? PRESET_COLORS[0])
+  const [excludeFromCharts, setExcludeFromCharts] = useState(initial?.excludeFromCharts ?? false)
   const [error, setError] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) { setError('Nome é obrigatório'); return }
-    onSubmit({ name: name.trim(), type, color })
+    onSubmit({ name: name.trim(), type, color, excludeFromCharts })
   }
 
   return (
@@ -62,6 +63,15 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
           ))}
         </div>
       </div>
+      <label className="flex items-center gap-2 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={excludeFromCharts}
+          onChange={e => setExcludeFromCharts(e.target.checked)}
+          className="w-4 h-4 rounded accent-indigo-500"
+        />
+        <span className="text-sm text-slate-600">Ocultar dos gráficos de gastos</span>
+      </label>
       <div className="flex gap-2 justify-end pt-2">
         <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
         <Button type="submit">Salvar</Button>

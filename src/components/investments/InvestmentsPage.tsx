@@ -10,7 +10,7 @@ import { Badge } from '../ui/Badge'
 import { InvestmentForm } from './InvestmentForm'
 import { TransactionForm } from '../transactions/TransactionForm'
 import { formatCurrency } from '../../utils/formatCurrency'
-import { formatDate, formatMonth, monthFromDate } from '../../utils/formatDate'
+import { formatDate, formatMonth, monthFromDate, todayISO } from '../../utils/formatDate'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
 const DEFAULT_INVESTMENT_CATEGORY_COLOR = '#8b5cf6'
@@ -89,6 +89,59 @@ function UpdateValueModal({ investment, onSave, onClose }: UpdateValueModalProps
   )
 }
 
+interface AporteModalProps {
+  investment: Investment
+  onSave: (amount: number, date: string) => void
+  onClose: () => void
+}
+
+function AporteModal({ investment, onSave, onClose }: AporteModalProps) {
+  const [amount, setAmount] = useState('')
+  const [date, setDate] = useState(todayISO())
+  const [error, setError] = useState('')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const val = parseFloat(amount)
+    if (!val || val <= 0) { setError('Valor inválido'); return }
+    onSave(val, date)
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Novo aporte — ${investment.name}`}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-slate-700">Valor do aporte (R$)</label>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={amount}
+            onChange={e => { setAmount(e.target.value); setError('') }}
+            autoFocus
+            placeholder="0,00"
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          />
+          {error && <p className="text-xs text-red-500">{error}</p>}
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-slate-700">Data</label>
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+          />
+        </div>
+        <div className="flex gap-2 justify-end pt-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button type="submit">Registrar aporte</Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 interface InvestmentsPageProps {
   month: string
   onMonthChange: (month: string) => void
@@ -102,6 +155,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
   const [editing, setEditing] = useState<Investment | null>(null)
   const [updatingValue, setUpdatingValue] = useState<Investment | null>(null)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+  const [aportando, setAportando] = useState<Investment | null>(null)
 
   const investmentTxs = getByMonth(month)
     .filter(t => t.type === 'investment')
@@ -133,9 +187,35 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
     setShowAdd(false)
   }
 
+  const handleAporte = (investmentId: string, amount: number, date: string) => {
+    const inv = investments.find(i => i.id === investmentId)!
+    updateInvestment(investmentId, { amountInvested: inv.amountInvested + amount })
+    const categoryId = ensureInvestmentCategoryId()
+    addTransaction({
+      date,
+      amount,
+      type: 'investment',
+      categoryId,
+      description: `Aporte — ${inv.name}`,
+      recurring: false,
+      investmentId,
+    })
+    setAportando(null)
+    const txMonth = monthFromDate(date)
+    if (txMonth !== month) onMonthChange(txMonth)
+  }
+
   const handleDeleteInvestment = (id: string) => {
     deleteInvestment(id)
     deleteByInvestmentId(id)
+  }
+
+  const handleDeleteAporteTx = (txId: string, investmentId: string | undefined, amount: number) => {
+    deleteTransaction(txId)
+    if (investmentId) {
+      const inv = investments.find(i => i.id === investmentId)
+      if (inv) updateInvestment(investmentId, { amountInvested: Math.max(0, inv.amountInvested - amount) })
+    }
   }
 
   const handleEditTx = (data: Omit<Transaction, 'id'>) => {
@@ -210,6 +290,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                       </div>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
+                      <Button size="sm" variant="ghost" onClick={() => setAportando(inv)} title="Registrar aporte">+ Aporte</Button>
                       <Button size="sm" variant="ghost" onClick={() => setUpdatingValue(inv)} title="Atualizar valor">💰</Button>
                       <Button size="sm" variant="ghost" onClick={() => setEditing(inv)}>✏️</Button>
                       <Button size="sm" variant="danger" onClick={() => handleDeleteInvestment(inv.id)}>🗑️</Button>
@@ -304,7 +385,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                       <span className="text-sm font-semibold text-indigo-600">{formatCurrency(t.amount)}</span>
                       <div className="flex gap-1">
                         <Button size="sm" variant="ghost" onClick={() => setEditingTx(t)}>✏️</Button>
-                        <Button size="sm" variant="danger" onClick={() => deleteTransaction(t.id)}>🗑️</Button>
+                        <Button size="sm" variant="danger" onClick={() => handleDeleteAporteTx(t.id, t.investmentId, t.amount)}>🗑️</Button>
                       </div>
                     </div>
                   </div>
@@ -347,6 +428,14 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
           investment={updatingValue}
           onSave={value => { updateInvestment(updatingValue.id, { currentValue: value }); setUpdatingValue(null) }}
           onClose={() => setUpdatingValue(null)}
+        />
+      )}
+
+      {aportando && (
+        <AporteModal
+          investment={aportando}
+          onSave={(amount, date) => handleAporte(aportando.id, amount, date)}
+          onClose={() => setAportando(null)}
         />
       )}
     </div>
