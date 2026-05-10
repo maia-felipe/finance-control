@@ -3,12 +3,21 @@ import { supabase } from '../lib/supabase'
 import type { Investment } from '../types'
 import { generateId } from '../utils/generateId'
 import { todayISO } from '../utils/formatDate'
+import { useAuth } from '../contexts/AuthContext'
 
 export function useInvestments() {
+  const { user } = useAuth()
   const [investments, setInvestments] = useState<Investment[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const userId = user?.id
+    if (!userId) {
+      setInvestments([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
     supabase
       .from('investments')
       .select('*')
@@ -19,15 +28,17 @@ export function useInvestments() {
           startDate: row.start_date, lastUpdated: row.last_updated,
           color: row.color, notes: row.notes,
         })))
+        else setInvestments([])
         setLoading(false)
       })
-  }, [])
+  }, [user?.id])
 
   const addInvestment = (data: Omit<Investment, 'id' | 'lastUpdated'>): string => {
+    if (!user) return ''
     const newInv: Investment = { ...data, id: generateId(), lastUpdated: todayISO() }
     setInvestments(prev => [newInv, ...prev])
     supabase.from('investments').insert({
-      id: newInv.id, name: newInv.name, category: newInv.category,
+      id: newInv.id, user_id: user.id, name: newInv.name, category: newInv.category,
       amount_invested: newInv.amountInvested, current_value: newInv.currentValue,
       start_date: newInv.startDate, last_updated: newInv.lastUpdated,
       color: newInv.color, notes: newInv.notes,

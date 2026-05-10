@@ -2,12 +2,21 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Transaction, TransactionType } from '../types'
 import { generateId } from '../utils/generateId'
+import { useAuth } from '../contexts/AuthContext'
 
 export function useTransactions() {
+  const { user } = useAuth()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const userId = user?.id
+    if (!userId) {
+      setTransactions([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
     supabase
       .from('transactions')
       .select('*')
@@ -19,15 +28,17 @@ export function useTransactions() {
           description: row.description, recurring: row.recurring,
           investmentId: row.investment_id ?? undefined,
         })))
+        else setTransactions([])
         setLoading(false)
       })
-  }, [])
+  }, [user?.id])
 
   const addTransaction = (data: Omit<Transaction, 'id'>) => {
+    if (!user) return
     const newTx: Transaction = { ...data, id: generateId() }
     setTransactions(prev => [newTx, ...prev])
     supabase.from('transactions').insert({
-      id: newTx.id, date: newTx.date, amount: newTx.amount, type: newTx.type,
+      id: newTx.id, user_id: user.id, date: newTx.date, amount: newTx.amount, type: newTx.type,
       category_id: newTx.categoryId, description: newTx.description, recurring: newTx.recurring,
       investment_id: newTx.investmentId ?? null,
     }).then(({ error }) => {

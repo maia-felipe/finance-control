@@ -2,52 +2,44 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Category } from '../types'
 import { generateId } from '../utils/generateId'
-
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat-1', name: 'Alimentação', type: 'expense', color: '#f97316' },
-  { id: 'cat-2', name: 'Transporte', type: 'expense', color: '#3b82f6' },
-  { id: 'cat-3', name: 'Moradia', type: 'expense', color: '#8b5cf6' },
-  { id: 'cat-4', name: 'Saúde', type: 'expense', color: '#10b981' },
-  { id: 'cat-5', name: 'Lazer', type: 'expense', color: '#ec4899' },
-  { id: 'cat-6', name: 'Educação', type: 'expense', color: '#eab308' },
-  { id: 'cat-7', name: 'Outros', type: 'expense', color: '#6b7280' },
-  { id: 'cat-8', name: 'Salário', type: 'income', color: '#16a34a' },
-  { id: 'cat-9', name: 'Freelance', type: 'income', color: '#0d9488' },
-]
+import { useAuth } from '../contexts/AuthContext'
 
 export function useCategories() {
+  const { user } = useAuth()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const userId = user?.id
+    if (!userId) {
+      setCategories([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
     supabase
       .from('categories')
       .select('*')
       .order('sort_order', { ascending: true })
-      .then(async ({ data }) => {
-        if (data && data.length > 0) {
+      .then(({ data }) => {
+        if (data) {
           setCategories(data.map(row => ({
             id: row.id, name: row.name, type: row.type, color: row.color,
             excludeFromCharts: row.exclude_from_charts ?? false,
           })))
-        } else if (!localStorage.getItem('fc_migrated')) {
-          // Seed padrão na primeira vez
-          await supabase.from('categories').insert(
-            DEFAULT_CATEGORIES.map((c, i) => ({
-              id: c.id, name: c.name, type: c.type, color: c.color, sort_order: i,
-            }))
-          )
-          setCategories(DEFAULT_CATEGORIES)
+        } else {
+          setCategories([])
         }
         setLoading(false)
       })
-  }, [])
+  }, [user?.id])
 
   const addCategory = (data: Omit<Category, 'id'>): string => {
+    if (!user) return ''
     const newCat: Category = { ...data, id: generateId() }
     setCategories(prev => {
       supabase.from('categories').insert({
-        id: newCat.id, name: newCat.name, type: newCat.type,
+        id: newCat.id, user_id: user.id, name: newCat.name, type: newCat.type,
         color: newCat.color, sort_order: prev.length,
         exclude_from_charts: newCat.excludeFromCharts ?? false,
       }).then(({ error }) => {

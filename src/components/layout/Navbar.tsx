@@ -10,6 +10,16 @@ interface NavbarProps {
   onMonthChange: (month: string) => void
 }
 
+function LogoutIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  )
+}
+
 const tabs: { id: Tab; label: string; emoji: string }[] = [
   { id: 'dashboard', label: 'Dashboard', emoji: '📊' },
   { id: 'expenses', label: 'Gastos', emoji: '💸' },
@@ -49,8 +59,10 @@ export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarP
               <span className="text-xs text-slate-500 truncate max-w-45" title={user.email ?? ''}>{user.email}</span>
               <button
                 onClick={signOut}
-                className="text-xs text-slate-500 hover:text-red-500 cursor-pointer transition"
+                title="Sair da conta"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition cursor-pointer"
               >
+                <LogoutIcon />
                 Sair
               </button>
             </div>
@@ -66,9 +78,11 @@ export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarP
           {user && (
             <button
               onClick={signOut}
-              className="text-xs text-slate-500 hover:text-red-500 cursor-pointer pl-2 border-l border-slate-100"
+              title="Sair da conta"
+              aria-label="Sair"
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition cursor-pointer"
             >
-              Sair
+              <LogoutIcon />
             </button>
           )}
         </div>
