@@ -44,8 +44,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signUpWithEmail = async (email: string, password: string): Promise<AuthResult> => {
-    const { error } = await supabase.auth.signUp({ email, password })
-    return error ? { error: error.message } : {}
+    const { data, error } = await supabase.auth.signUp({ email, password })
+    if (error) return { error: error.message }
+    // Supabase, por design anti-enumeração, retorna sucesso sem erro quando
+    // o email já existe e confirmação de email está desligada — porém o objeto
+    // user vem com identities = []. Detectamos isso e bloqueamos explicitamente.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      // Garante que não fique uma sessão "fantasma" do usuário existente
+      await supabase.auth.signOut()
+      return { error: 'Este email já está cadastrado. Faça login.' }
+    }
+    return {}
   }
 
   const signInWithGoogle = async (): Promise<AuthResult> => {
