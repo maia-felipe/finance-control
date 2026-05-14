@@ -58,6 +58,7 @@ export interface WishlistItem {
   category?: string        // ex: "Compras pessoais"
   subcategory?: string     // ex: "Tech"
   priority: number         // 1 a 5
+  plannedInstallments: number  // parcelas planejadas (1 = à vista)
   purchased: boolean
   purchasedAt?: string
   transactionId?: string   // id da transação criada quando marcou como comprado

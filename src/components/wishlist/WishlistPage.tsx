@@ -18,10 +18,29 @@ const ROOT_SUB_KEY = '__root__'
 
 export function WishlistPage() {
   const { items, loading, addItem, updateItem, deleteItem } = useWishlist()
-  const { transactions, addTransaction, removeByPurchaseRef } = useTransactions()
+  const { transactions, addTransaction, removeByPurchaseRef, getCumulativeBalance } = useTransactions()
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<WishlistItem | null>(null)
   const [markingPurchased, setMarkingPurchased] = useState<WishlistItem | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const thisMonth = useMemo(() => format(new Date(), 'yyyy-MM'), [])
+  const availableBalance = getCumulativeBalance(thisMonth)
+  const selectedItems = useMemo(
+    () => items.filter(i => !i.purchased && selectedIds.has(i.id)),
+    [items, selectedIds]
+  )
+  const selectedTotal = selectedItems.reduce((s, i) => s + i.price, 0)
+  const selectedMonthlyTotal = selectedItems.reduce((s, i) => s + i.price / (i.plannedInstallments ?? 1), 0)
+  const selectionFits = selectedMonthlyTotal <= availableBalance && selectedIds.size > 0
 
   const handleConfirmPurchase = (data: PurchaseFormData) => {
     if (!markingPurchased) return
@@ -107,7 +126,28 @@ export function WishlistPage() {
         <Button onClick={() => setShowAdd(true)}>+ Novo item</Button>
       </div>
 
-      <WishlistInsights items={items} transactions={transactions} />
+      <WishlistInsights items={items} transactions={transactions} availableBalance={availableBalance} />
+
+      {selectedIds.size > 0 && (
+        <div className="sticky top-16 z-30 bg-white border border-indigo-100 rounded-xl shadow-sm px-4 py-3 mb-4 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-800">
+              {selectedIds.size} item(s) — {formatCurrency(selectedMonthlyTotal)}/mês
+              {selectedTotal !== selectedMonthlyTotal && (
+                <span className="text-xs font-normal text-slate-400 ml-1">(total: {formatCurrency(selectedTotal)})</span>
+              )}
+            </p>
+            <p className={`text-xs mt-0.5 ${selectionFits ? 'text-emerald-600' : 'text-red-500'}`}>
+              {selectionFits
+                ? `✅ Cabe nesse mês (saldo: ${formatCurrency(availableBalance)})`
+                : `❌ Falta ${formatCurrency(selectedMonthlyTotal - availableBalance)}/mês (saldo: ${formatCurrency(availableBalance)})`}
+            </p>
+          </div>
+          <Button size="sm" variant="secondary" onClick={() => setSelectedIds(new Set())}>
+            Limpar
+          </Button>
+        </div>
+      )}
 
       {items.length === 0 ? (
         <Card>
@@ -132,6 +172,14 @@ export function WishlistPage() {
                   {list.map(item => (
                     <Card key={item.id} className={item.purchased ? 'opacity-50' : ''}>
                       <div className="flex items-start justify-between gap-3">
+                        {!item.purchased && (
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(item.id)}
+                            onChange={() => toggleSelection(item.id)}
+                            className="mt-1 w-4 h-4 shrink-0 rounded accent-indigo-500 cursor-pointer"
+                          />
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <StarRating value={item.priority} />

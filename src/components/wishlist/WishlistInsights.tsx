@@ -8,6 +8,7 @@ import { currentMonth } from '../../utils/formatDate'
 interface WishlistInsightsProps {
   items: WishlistItem[]
   transactions: Transaction[]
+  availableBalance: number
 }
 
 const STORAGE_KEY = 'fc_wishlist_insights_collapsed'
@@ -66,7 +67,7 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
   )
 }
 
-export function WishlistInsights({ items, transactions }: WishlistInsightsProps) {
+export function WishlistInsights({ items, transactions, availableBalance }: WishlistInsightsProps) {
   const { getBudget } = useBudget()
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(STORAGE_KEY) === '1')
 
@@ -118,6 +119,28 @@ export function WishlistInsights({ items, transactions }: WishlistInsightsProps)
 
   const monthsToBuyAll =
     effectiveMonthly > 0 && totalDesired > 0 ? Math.ceil(totalDesired / effectiveMonthly) : null
+
+  // Greedy: quais itens cabem no saldo disponível deste mês, ordenados por prioridade desc + preço asc
+  const fitsThisMonth = useMemo(() => {
+    const unpurchased = items
+      .filter(i => !i.purchased)
+      .slice()
+      .sort((a, b) => {
+        const aMonthly = a.price / (a.plannedInstallments ?? 1)
+        const bMonthly = b.price / (b.plannedInstallments ?? 1)
+        return b.priority - a.priority || aMonthly - bMonthly
+      })
+    let remaining = availableBalance
+    const fitting: WishlistItem[] = []
+    for (const item of unpurchased) {
+      const monthlyCost = item.price / (item.plannedInstallments ?? 1)
+      if (monthlyCost <= remaining) {
+        fitting.push(item)
+        remaining -= monthlyCost
+      }
+    }
+    return { fitting, totalFit: availableBalance - remaining }
+  }, [items, availableBalance])
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 mb-6 overflow-hidden">
@@ -179,6 +202,52 @@ export function WishlistInsights({ items, transactions }: WishlistInsightsProps)
               }
             />
           </div>
+
+          {/* O que cabe esse mês */}
+          {availableBalance > 0 && desiredCount > 0 && (
+            <div className="border-t border-slate-50 pt-4">
+              <p className="text-xs font-semibold text-slate-600 mb-2">
+                💡 O que cabe esse mês
+                <span className="font-normal text-slate-400 ml-1">
+                  (saldo disponível: {formatCurrency(availableBalance)})
+                </span>
+              </p>
+              {fitsThisMonth.fitting.length === 0 ? (
+                <p className="text-xs text-slate-400">
+                  Nenhum item cabe no saldo disponível deste mês.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {fitsThisMonth.fitting.map(item => {
+                    const n = item.plannedInstallments ?? 1
+                    const monthly = item.price / n
+                    return (
+                      <div key={item.id} className="flex items-center justify-between gap-2 text-xs">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-emerald-500 shrink-0">✓</span>
+                          <span className="text-slate-700 truncate">{item.name}</span>
+                          {n > 1 && (
+                            <span className="text-indigo-400 shrink-0 bg-indigo-50 px-1 rounded">
+                              {n}×
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-slate-500 shrink-0 font-medium">
+                          {n > 1 ? `${formatCurrency(monthly)}/mês` : formatCurrency(item.price)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                  <div className="flex justify-between text-xs text-slate-400 pt-1 border-t border-slate-50 mt-0.5">
+                    <span>Total sugerido</span>
+                    <span className="font-medium text-slate-600">
+                      {formatCurrency(fitsThisMonth.totalFit)} / {formatCurrency(availableBalance)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

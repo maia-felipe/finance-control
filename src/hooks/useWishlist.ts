@@ -13,6 +13,7 @@ function rowToItem(row: Record<string, unknown>): WishlistItem {
     category: (row.category as string | null) ?? undefined,
     subcategory: (row.subcategory as string | null) ?? undefined,
     priority: (row.priority as number) ?? 3,
+    plannedInstallments: (row.planned_installments as number) ?? 1,
     purchased: (row.purchased as boolean) ?? false,
     purchasedAt: (row.purchased_at as string | null) ?? undefined,
     transactionId: (row.transaction_id as string | null) ?? undefined,
@@ -64,6 +65,7 @@ export function useWishlist() {
       category: newItem.category ?? null,
       subcategory: newItem.subcategory ?? null,
       priority: newItem.priority,
+      planned_installments: newItem.plannedInstallments ?? 1,
       purchased: false,
       purchased_at: null,
       notes: newItem.notes ?? null,
@@ -86,6 +88,7 @@ export function useWishlist() {
     if (data.category !== undefined) patch.category = data.category ?? null
     if (data.subcategory !== undefined) patch.subcategory = data.subcategory ?? null
     if (data.priority !== undefined) patch.priority = data.priority
+    if (data.plannedInstallments !== undefined) patch.planned_installments = data.plannedInstallments
     if (data.purchased !== undefined) patch.purchased = data.purchased
     if (data.purchasedAt !== undefined) patch.purchased_at = data.purchasedAt ?? null
     if (data.transactionId !== undefined) patch.transaction_id = data.transactionId ?? null

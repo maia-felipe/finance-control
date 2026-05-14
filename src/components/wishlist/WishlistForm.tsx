@@ -37,6 +37,7 @@ export function WishlistForm({ initial, onSubmit, onCancel }: WishlistFormProps)
   const [subcategory, setSubcategory] = useState(initialSubValid ? initial!.subcategory! : '')
   const [url, setUrl] = useState(initial?.url ?? '')
   const [priority, setPriority] = useState(initial?.priority ?? 3)
+  const [plannedInstallments, setPlannedInstallments] = useState(initial?.plannedInstallments ?? 1)
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -61,6 +62,7 @@ export function WishlistForm({ initial, onSubmit, onCancel }: WishlistFormProps)
     onSubmit({
       name: name.trim(),
       price: parseFloat(price),
+      plannedInstallments,
       category: category || undefined,
       subcategory: subcategory || undefined,
       url: url.trim() || undefined,
@@ -80,16 +82,34 @@ export function WishlistForm({ initial, onSubmit, onCancel }: WishlistFormProps)
         autoFocus
       />
 
-      <Input
-        label="Preço (R$)"
-        type="number"
-        min="0"
-        step="0.01"
-        value={price}
-        onChange={e => { setPrice(e.target.value); setErrors(p => ({ ...p, price: '' })) }}
-        error={errors.price}
-        placeholder="0,00"
-      />
+      <div className="grid grid-cols-2 gap-3">
+        <Input
+          label="Preço total (R$)"
+          type="number"
+          min="0"
+          step="0.01"
+          value={price}
+          onChange={e => { setPrice(e.target.value); setErrors(p => ({ ...p, price: '' })) }}
+          error={errors.price}
+          placeholder="0,00"
+        />
+        <div className="flex flex-col gap-1">
+          <Input
+            label="Parcelas planejadas"
+            type="number"
+            min="1"
+            max="60"
+            step="1"
+            value={plannedInstallments}
+            onChange={e => setPlannedInstallments(Math.max(1, parseInt(e.target.value) || 1))}
+          />
+          {plannedInstallments > 1 && parseFloat(price) > 0 && (
+            <p className="text-xs text-indigo-600">
+              ≈ R$ {(parseFloat(price) / plannedInstallments).toFixed(2)}/mês
+            </p>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Select
