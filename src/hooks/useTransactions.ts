@@ -27,26 +27,29 @@ export function useTransactions() {
           type: row.type, categoryId: row.category_id,
           description: row.description, recurring: row.recurring,
           investmentId: row.investment_id ?? undefined,
+          installmentGroupId: row.installment_group_id ?? undefined,
         })))
         else setTransactions([])
         setLoading(false)
       })
   }, [user?.id])
 
-  const addTransaction = (data: Omit<Transaction, 'id'>) => {
-    if (!user) return
+  const addTransaction = (data: Omit<Transaction, 'id'>): string => {
+    if (!user) return ''
     const newTx: Transaction = { ...data, id: generateId() }
     setTransactions(prev => [newTx, ...prev])
     supabase.from('transactions').insert({
       id: newTx.id, user_id: user.id, date: newTx.date, amount: newTx.amount, type: newTx.type,
       category_id: newTx.categoryId, description: newTx.description, recurring: newTx.recurring,
       investment_id: newTx.investmentId ?? null,
+      installment_group_id: newTx.installmentGroupId ?? null,
     }).then(({ error }) => {
       if (error) {
         console.error('addTransaction:', error)
         setTransactions(prev => prev.filter(t => t.id !== newTx.id))
       }
     })
+    return newTx.id
   }
 
   const updateTransaction = (id: string, data: Partial<Omit<Transaction, 'id'>>) => {
@@ -91,5 +94,16 @@ export function useTransactions() {
     })
   }
 
-  return { transactions, loading, addTransaction, updateTransaction, deleteTransaction, getByMonth, getCumulativeBalance, retypeByCategory, deleteByInvestmentId }
+  // Remove transações associadas a uma compra da wishlist.
+  // Pode ser um id de transação única OU um installment_group_id (compra parcelada).
+  const removeByPurchaseRef = (ref: string) => {
+    setTransactions(prev => prev.filter(t => t.id !== ref && t.installmentGroupId !== ref))
+    supabase.from('transactions').delete()
+      .or(`id.eq.${ref},installment_group_id.eq.${ref}`)
+      .then(({ error }) => {
+        if (error) console.error('removeByPurchaseRef:', error)
+      })
+  }
+
+  return { transactions, loading, addTransaction, updateTransaction, deleteTransaction, getByMonth, getCumulativeBalance, retypeByCategory, deleteByInvestmentId, removeByPurchaseRef }
 }

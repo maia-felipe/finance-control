@@ -8,6 +8,7 @@ export interface Category {
   type: CategoryType
   color: string
   excludeFromCharts?: boolean
+  subcategories?: string[]
 }
 
 export interface Transaction {
@@ -19,6 +20,7 @@ export interface Transaction {
   description: string
   recurring: boolean
   investmentId?: string
+  installmentGroupId?: string
 }
 
 export interface Budget {
@@ -46,4 +48,19 @@ export interface MonthSummary {
   totalIncome: number
   totalExpense: number
   balance: number
+}
+
+export interface WishlistItem {
+  id: string
+  name: string
+  url?: string
+  price: number
+  category?: string        // ex: "Compras pessoais"
+  subcategory?: string     // ex: "Tech"
+  priority: number         // 1 a 5
+  purchased: boolean
+  purchasedAt?: string
+  transactionId?: string   // id da transação criada quando marcou como comprado
+  notes?: string
+  createdAt: string
 }

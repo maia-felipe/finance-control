@@ -1,7 +1,7 @@
 import { MonthSelector } from './MonthSelector'
 import { useAuth } from '../../contexts/AuthContext'
 
-type Tab = 'dashboard' | 'expenses' | 'income' | 'investments' | 'budget' | 'categories' | 'reports'
+type Tab = 'dashboard' | 'expenses' | 'income' | 'investments' | 'budget' | 'wishlist' | 'categories' | 'reports'
 
 interface NavbarProps {
   activeTab: Tab
@@ -26,6 +26,7 @@ const tabs: { id: Tab; label: string; emoji: string }[] = [
   { id: 'income', label: 'Receitas', emoji: '💰' },
   { id: 'investments', label: 'Investimentos', emoji: '📈' },
   { id: 'budget', label: 'Orçamento', emoji: '🎯' },
+  { id: 'wishlist', label: 'Desejos', emoji: '⭐' },
   { id: 'categories', label: 'Categorias', emoji: '🏷️' },
   { id: 'reports', label: 'Relatórios', emoji: '📈' },
 ]

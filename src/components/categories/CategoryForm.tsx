@@ -21,12 +21,36 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
   const [type, setType] = useState<CategoryType>(initial?.type ?? 'expense')
   const [color, setColor] = useState(initial?.color ?? PRESET_COLORS[0])
   const [excludeFromCharts, setExcludeFromCharts] = useState(initial?.excludeFromCharts ?? false)
+  const [subcategories, setSubcategories] = useState<string[]>(initial?.subcategories ?? [])
+  const [newSub, setNewSub] = useState('')
   const [error, setError] = useState('')
+
+  const handleAddSubcategory = () => {
+    const trimmed = newSub.trim()
+    if (!trimmed) return
+    if (subcategories.some(s => s.toLowerCase() === trimmed.toLowerCase())) {
+      setNewSub('')
+      return
+    }
+    setSubcategories(prev => [...prev, trimmed])
+    setNewSub('')
+  }
+
+  const handleRemoveSubcategory = (sub: string) => {
+    setSubcategories(prev => prev.filter(s => s !== sub))
+  }
+
+  const handleSubKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleAddSubcategory()
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) { setError('Nome é obrigatório'); return }
-    onSubmit({ name: name.trim(), type, color, excludeFromCharts })
+    onSubmit({ name: name.trim(), type, color, excludeFromCharts, subcategories })
   }
 
   return (
@@ -72,6 +96,47 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
         />
         <span className="text-sm text-slate-600">Ocultar dos gráficos de gastos</span>
       </label>
+
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-medium text-slate-700">
+          Subcategorias <span className="text-slate-400 font-normal">(opcional)</span>
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newSub}
+            onChange={e => setNewSub(e.target.value)}
+            onKeyDown={handleSubKeyDown}
+            placeholder="Ex: Tech, Livros"
+            className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
+          />
+          <Button type="button" variant="secondary" onClick={handleAddSubcategory}>
+            Adicionar
+          </Button>
+        </div>
+        {subcategories.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {subcategories.map(sub => (
+              <span
+                key={sub}
+                className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded-md"
+              >
+                {sub}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveSubcategory(sub)}
+                  className="text-slate-400 hover:text-red-500 cursor-pointer transition"
+                  aria-label={`Remover ${sub}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <p className="text-xs text-slate-400">Enter para adicionar. Essas opções aparecerão na lista de desejos.</p>
+      </div>
+
       <div className="flex gap-2 justify-end pt-2">
         <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
         <Button type="submit">Salvar</Button>

@@ -9,6 +9,7 @@ import { BudgetPage } from './components/budget/BudgetPage'
 import { CategoriesPage } from './components/categories/CategoriesPage'
 import { ReportsPage } from './components/reports/ReportsPage'
 import { InvestmentsPage } from './components/investments/InvestmentsPage'
+import { WishlistPage } from './components/wishlist/WishlistPage'
 import { currentMonth } from './utils/formatDate'
 
 function AppContent() {
@@ -38,6 +39,7 @@ function AppContent() {
         {tab === 'income' && <TransactionsPage month={month} type="income" onMonthChange={setMonth} />}
         {tab === 'investments' && <InvestmentsPage month={month} onMonthChange={setMonth} />}
         {tab === 'budget' && <BudgetPage month={month} />}
+        {tab === 'wishlist' && <WishlistPage />}
         {tab === 'categories' && <CategoriesPage />}
         {tab === 'reports' && <ReportsPage month={month} />}
       </main>
