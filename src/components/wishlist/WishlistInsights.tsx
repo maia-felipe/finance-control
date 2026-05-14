@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { format, subMonths } from 'date-fns'
 import type { WishlistItem, Transaction } from '../../types'
+import { useBudget } from '../../hooks/useBudget'
 import { formatCurrency } from '../../utils/formatCurrency'
+import { currentMonth } from '../../utils/formatDate'
 
 interface WishlistInsightsProps {
   items: WishlistItem[]
@@ -10,6 +12,7 @@ interface WishlistInsightsProps {
 
 const STORAGE_KEY = 'fc_wishlist_insights_collapsed'
 const MONTHS_BACK = 6
+const MIN_MONTHS_FOR_HISTORY = 3
 
 /**
  * Saldo médio mensal: média do delta (receitas - gastos - investimentos)
@@ -64,6 +67,7 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 }
 
 export function WishlistInsights({ items, transactions }: WishlistInsightsProps) {
+  const { getBudget } = useBudget()
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(STORAGE_KEY) === '1')
 
   const toggleCollapsed = () => {
@@ -88,8 +92,32 @@ export function WishlistInsights({ items, transactions }: WishlistInsightsProps)
   )
   const installments = useMemo(() => calcInstallmentsThisMonth(transactions), [transactions])
 
+  // Fallback quando não há histórico suficiente: receita do mês atual − orçamento planejado
+  const { effectiveMonthly, usingFallback, fallbackSub } = useMemo(() => {
+    if (monthsCounted >= MIN_MONTHS_FOR_HISTORY) {
+      return {
+        effectiveMonthly: avgMonthly,
+        usingFallback: false,
+        fallbackSub: `média de ${monthsCounted} mês(es) anteriores`,
+      }
+    }
+    const thisMonth = currentMonth()
+    const budget = getBudget(thisMonth)
+    const currentIncome = transactions
+      .filter(t => t.type === 'income' && t.date.startsWith(thisMonth))
+      .reduce((s, t) => s + t.amount, 0)
+    const estimated = currentIncome - budget.totalLimit
+    return {
+      effectiveMonthly: estimated,
+      usingFallback: true,
+      fallbackSub: budget.totalLimit > 0
+        ? 'estimativa: receita − orçamento planejado'
+        : 'estimativa: receita do mês (sem orçamento definido)',
+    }
+  }, [monthsCounted, avgMonthly, transactions, getBudget])
+
   const monthsToBuyAll =
-    avgMonthly > 0 && totalDesired > 0 ? Math.ceil(totalDesired / avgMonthly) : null
+    effectiveMonthly > 0 && totalDesired > 0 ? Math.ceil(totalDesired / effectiveMonthly) : null
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 mb-6 overflow-hidden">
@@ -126,13 +154,9 @@ export function WishlistInsights({ items, transactions }: WishlistInsightsProps)
           {/* Linha 2: análise financeira */}
           <div className="flex flex-wrap gap-4">
             <Metric
-              label="Saldo médio mensal"
-              value={monthsCounted > 0 ? formatCurrency(avgMonthly) : '—'}
-              sub={
-                monthsCounted > 0
-                  ? `média de ${monthsCounted} mês(es) anteriores`
-                  : 'sem histórico ainda'
-              }
+              label={usingFallback ? 'Poupança estimada/mês' : 'Saldo médio mensal'}
+              value={effectiveMonthly !== 0 ? formatCurrency(effectiveMonthly) : '—'}
+              sub={fallbackSub}
             />
             <Metric
               label="Parcelas este mês"
@@ -148,9 +172,9 @@ export function WishlistInsights({ items, transactions }: WishlistInsightsProps)
               value={monthsToBuyAll !== null ? `~${monthsToBuyAll} meses` : '—'}
               sub={
                 monthsToBuyAll !== null
-                  ? `com saldo médio atual`
-                  : avgMonthly <= 0
-                    ? 'saldo médio precisa ser positivo'
+                  ? usingFallback ? 'com poupança estimada' : 'com saldo médio histórico'
+                  : effectiveMonthly <= 0
+                    ? 'poupança precisa ser positiva'
                     : 'sem itens desejados'
               }
             />
