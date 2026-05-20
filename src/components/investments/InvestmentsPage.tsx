@@ -14,6 +14,7 @@ import { formatDate, formatMonth, monthFromDate, todayISO } from '../../utils/fo
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
 const DEFAULT_INVESTMENT_CATEGORY_COLOR = '#8b5cf6'
+const DEFAULT_RESGATE_CATEGORY_COLOR = '#f97316'
 
 function SummaryCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
   return (
@@ -95,6 +96,63 @@ interface AporteModalProps {
   onClose: () => void
 }
 
+function ResgateModal({ investment, onSave, onClose }: AporteModalProps) {
+  const [amount, setAmount] = useState('')
+  const [date, setDate] = useState(todayISO())
+  const [error, setError] = useState('')
+
+  const val = parseFloat(amount) || 0
+  const exceedsBalance = val > 0 && val > investment.currentValue
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!val || val <= 0) { setError('Valor inválido'); return }
+    onSave(val, date)
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Resgatar — ${investment.name}`}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-slate-700">Valor do resgate (R$)</label>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={amount}
+            onChange={e => { setAmount(e.target.value); setError('') }}
+            autoFocus
+            placeholder="0,00"
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          />
+          {error && <p className="text-xs text-red-500">{error}</p>}
+          {!error && exceedsBalance && (
+            <p className="text-xs text-orange-500">
+              Valor maior que o saldo atual ({formatCurrency(investment.currentValue)}). O saldo será zerado.
+            </p>
+          )}
+          <p className="text-xs text-slate-400">
+            Aportado: {formatCurrency(investment.amountInvested)} · Atual: {formatCurrency(investment.currentValue)}
+          </p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-slate-700">Data</label>
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+          />
+        </div>
+        <div className="flex gap-2 justify-end pt-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+          <Button type="submit">Registrar resgate</Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
 function AporteModal({ investment, onSave, onClose }: AporteModalProps) {
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(todayISO())
@@ -156,16 +214,26 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
   const [updatingValue, setUpdatingValue] = useState<Investment | null>(null)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [aportando, setAportando] = useState<Investment | null>(null)
+  const [resgatando, setResgatando] = useState<Investment | null>(null)
 
   const investmentTxs = getByMonth(month)
-    .filter(t => t.type === 'investment')
+    .filter(t => t.type === 'investment' || (t.type === 'income' && !!t.investmentId))
     .sort((a, b) => b.date.localeCompare(a.date))
-  const totalInvestedMonth = investmentTxs.reduce((s, t) => s + t.amount, 0)
+  const totalInvestedMonth = investmentTxs.reduce(
+    (s, t) => s + (t.type === 'investment' ? t.amount : -t.amount),
+    0,
+  )
 
   const ensureInvestmentCategoryId = (): string => {
     const existing = categories.find(c => c.type === 'investment')
     if (existing) return existing.id
     return addCategory({ name: 'Investimentos', type: 'investment', color: DEFAULT_INVESTMENT_CATEGORY_COLOR })
+  }
+
+  const ensureResgateCategoryId = (): string => {
+    const existing = categories.find(c => c.name === 'Resgate de Investimento' && c.type === 'income')
+    if (existing) return existing.id
+    return addCategory({ name: 'Resgate de Investimento', type: 'income', color: DEFAULT_RESGATE_CATEGORY_COLOR })
   }
 
   const handleAddInvestment = (data: Omit<Investment, 'id' | 'lastUpdated'>) => {
@@ -205,16 +273,46 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
     if (txMonth !== month) onMonthChange(txMonth)
   }
 
+  const handleResgate = (investmentId: string, amount: number, date: string) => {
+    const inv = investments.find(i => i.id === investmentId)!
+    updateInvestment(investmentId, {
+      amountInvested: Math.max(0, inv.amountInvested - amount),
+      currentValue: Math.max(0, inv.currentValue - amount),
+    })
+    const categoryId = ensureResgateCategoryId()
+    addTransaction({
+      date,
+      amount,
+      type: 'income',
+      categoryId,
+      description: `Resgate — ${inv.name}`,
+      recurring: false,
+      investmentId,
+    })
+    setResgatando(null)
+    const txMonth = monthFromDate(date)
+    if (txMonth !== month) onMonthChange(txMonth)
+  }
+
   const handleDeleteInvestment = (id: string) => {
     deleteInvestment(id)
     deleteByInvestmentId(id)
   }
 
-  const handleDeleteAporteTx = (txId: string, investmentId: string | undefined, amount: number) => {
-    deleteTransaction(txId)
-    if (investmentId) {
-      const inv = investments.find(i => i.id === investmentId)
-      if (inv) updateInvestment(investmentId, { amountInvested: Math.max(0, inv.amountInvested - amount) })
+  const handleDeleteAporteTx = (t: Transaction) => {
+    deleteTransaction(t.id)
+    if (!t.investmentId) return
+    const inv = investments.find(i => i.id === t.investmentId)
+    if (!inv) return
+    if (t.type === 'investment') {
+      updateInvestment(t.investmentId, {
+        amountInvested: Math.max(0, inv.amountInvested - t.amount),
+      })
+    } else if (t.type === 'income') {
+      updateInvestment(t.investmentId, {
+        amountInvested: inv.amountInvested + t.amount,
+        currentValue: inv.currentValue + t.amount,
+      })
     }
   }
 
@@ -291,6 +389,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <Button size="sm" variant="ghost" onClick={() => setAportando(inv)} title="Registrar aporte">+ Aporte</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setResgatando(inv)} title="Registrar resgate" className="text-orange-600 hover:bg-orange-50">− Resgatar</Button>
                       <Button size="sm" variant="ghost" onClick={() => setUpdatingValue(inv)} title="Atualizar valor">💰</Button>
                       <Button size="sm" variant="ghost" onClick={() => setEditing(inv)}>✏️</Button>
                       <Button size="sm" variant="danger" onClick={() => handleDeleteInvestment(inv.id)}>🗑️</Button>
@@ -356,19 +455,22 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
         </div>
       )}
 
-      {/* Aportes do mês */}
+      {/* Aportes e resgates do mês */}
       <div className="mt-6">
         <div className="mb-3">
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Aportes — <span className="capitalize">{formatMonth(month)}</span></h2>
-          <p className="text-sm font-semibold text-indigo-600 mt-0.5">{formatCurrency(totalInvestedMonth)}</p>
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Aportes e resgates — <span className="capitalize">{formatMonth(month)}</span></h2>
+          <p className={`text-sm font-semibold mt-0.5 ${totalInvestedMonth >= 0 ? 'text-indigo-600' : 'text-red-500'}`}>
+            {totalInvestedMonth >= 0 ? '' : '−'}{formatCurrency(Math.abs(totalInvestedMonth))}
+          </p>
         </div>
         <Card className="!p-0 overflow-hidden">
           {investmentTxs.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-8">Nenhum aporte registrado neste mês.</p>
+            <p className="text-sm text-slate-400 text-center py-8">Nenhum aporte ou resgate registrado neste mês.</p>
           ) : (
             <div className="divide-y divide-slate-50">
               {investmentTxs.map(t => {
                 const cat = getCategoryById(t.categoryId)
+                const isResgate = t.type === 'income'
                 return (
                   <div key={t.id} className="flex items-center justify-between px-5 py-3.5">
                     <div className="flex items-center gap-3 min-w-0">
@@ -382,10 +484,12 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 ml-3">
-                      <span className="text-sm font-semibold text-indigo-600">{formatCurrency(t.amount)}</span>
+                      <span className={`text-sm font-semibold ${isResgate ? 'text-red-500' : 'text-indigo-600'}`}>
+                        {isResgate ? '−' : ''}{formatCurrency(t.amount)}
+                      </span>
                       <div className="flex gap-1">
                         <Button size="sm" variant="ghost" onClick={() => setEditingTx(t)}>✏️</Button>
-                        <Button size="sm" variant="danger" onClick={() => handleDeleteAporteTx(t.id, t.investmentId, t.amount)}>🗑️</Button>
+                        <Button size="sm" variant="danger" onClick={() => handleDeleteAporteTx(t)}>🗑️</Button>
                       </div>
                     </div>
                   </div>
@@ -396,7 +500,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
         </Card>
       </div>
 
-      <Modal open={!!editingTx} onClose={() => setEditingTx(null)} title="Editar aporte">
+      <Modal open={!!editingTx} onClose={() => setEditingTx(null)} title="Editar aporte/resgate">
         {editingTx && (
           <TransactionForm
             initial={editingTx}
@@ -436,6 +540,14 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
           investment={aportando}
           onSave={(amount, date) => handleAporte(aportando.id, amount, date)}
           onClose={() => setAportando(null)}
+        />
+      )}
+
+      {resgatando && (
+        <ResgateModal
+          investment={resgatando}
+          onSave={(amount, date) => handleResgate(resgatando.id, amount, date)}
+          onClose={() => setResgatando(null)}
         />
       )}
     </div>
