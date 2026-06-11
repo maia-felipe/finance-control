@@ -87,7 +87,7 @@ export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <p className="text-xs text-slate-500 -mt-1">
+      <p className="text-xs text-content-2 -mt-1">
         Vamos registrar essa compra como gasto. Ajuste os detalhes antes de salvar.
       </p>
 
@@ -131,19 +131,19 @@ export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
       />
 
       {/* Toggle parcelamento */}
-      <div className="border-t border-slate-100 pt-4 flex flex-col gap-3">
+      <div className="border-t border-border-subtle pt-4 flex flex-col gap-3">
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={isInstallment}
             onChange={e => setIsInstallment(e.target.checked)}
-            className="w-4 h-4 rounded accent-indigo-500"
+            className="w-4 h-4 rounded accent-primary"
           />
-          <span className="text-sm font-medium text-slate-700">Pagamento parcelado</span>
+          <span className="text-sm font-medium text-content">Pagamento parcelado</span>
         </label>
 
         {isInstallment && (
-          <div className="flex flex-col gap-3 pl-6 border-l-2 border-indigo-100">
+          <div className="flex flex-col gap-3 pl-6 border-l-2 border-accent-soft">
             <div className="grid grid-cols-2 gap-3">
               <Input
                 label="Número de parcelas"
@@ -165,9 +165,9 @@ export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
             </div>
 
             {installments >= 2 && firstDate && lastDate && (
-              <div className="text-xs text-slate-500 bg-indigo-50 rounded-md px-3 py-2 flex flex-col gap-0.5">
+              <div className="text-xs text-content-2 bg-accent-soft rounded-md px-3 py-2 flex flex-col gap-0.5">
                 <span>
-                  <strong className="text-indigo-700">{formatCurrency(installmentValue)}</strong> × {installments} vezes
+                  <strong className="text-accent">{formatCurrency(installmentValue)}</strong> × {installments} vezes
                 </span>
                 <span>
                   Última parcela: <strong className="capitalize">{format(lastDate, 'MMMM yyyy', { locale: ptBR })}</strong>

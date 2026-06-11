@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Wallet } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { Card } from '../ui/Card'
 import { Input } from '../ui/Input'
@@ -27,11 +28,14 @@ export function UpdatePasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-indigo-600">💰 FinanControl</h1>
-          <p className="text-sm text-slate-500 mt-1">Defina sua nova senha</p>
+          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-accent-soft text-accent mx-auto mb-3">
+            <Wallet size={24} />
+          </div>
+          <h1 className="text-2xl font-bold text-content tracking-tight">FinanControl</h1>
+          <p className="text-sm text-content-2 mt-1">Defina sua nova senha</p>
         </div>
 
         <Card>
@@ -53,7 +57,7 @@ export function UpdatePasswordPage() {
               minLength={6}
               required
             />
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-sm text-danger">{error}</p>}
             <Button type="submit" disabled={submitting}>
               {submitting ? 'Aguarde...' : 'Salvar nova senha'}
             </Button>

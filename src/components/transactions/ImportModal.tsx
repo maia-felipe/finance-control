@@ -130,7 +130,7 @@ export function ImportModal({ open, onClose, categories, existingTransactions, o
     <Modal open={open} onClose={close} title="Importar extrato (CSV/OFX)">
       {step === 'file' && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-content-2">
             Selecione um arquivo <strong>OFX</strong> (exportado pelo seu banco) ou <strong>CSV</strong>.
           </p>
           <input
@@ -140,14 +140,14 @@ export function ImportModal({ open, onClose, categories, existingTransactions, o
               const file = e.target.files?.[0]
               if (file) handleFile(file)
             }}
-            className="text-sm text-slate-600 file:mr-3 file:px-4 file:py-2 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-600 file:font-medium file:cursor-pointer hover:file:bg-indigo-100"
+            className="text-sm text-content-2 file:mr-3 file:px-4 file:py-2 file:rounded-lg file:border-0 file:bg-accent-soft file:text-accent file:font-medium file:cursor-pointer hover:file:bg-accent/20"
           />
         </div>
       )}
 
       {step === 'map' && csvData && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-slate-500">Indique o que cada coluna do CSV representa:</p>
+          <p className="text-sm text-content-2">Indique o que cada coluna do CSV representa:</p>
           <Select label="Coluna da data" value={mapping.dateCol} onChange={e => setMapping(m => ({ ...m, dateCol: Number(e.target.value) }))}>
             {colOptions}
           </Select>
@@ -191,30 +191,30 @@ export function ImportModal({ open, onClose, categories, existingTransactions, o
             )}
           </div>
 
-          <div className="max-h-64 overflow-y-auto border border-slate-100 rounded-lg divide-y divide-slate-50">
+          <div className="max-h-64 overflow-y-auto border border-border-subtle rounded-lg divide-y divide-border-subtle">
             {rows.map((r, i) => (
               <label key={i} className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${r.included ? '' : 'opacity-50'}`}>
                 <input
                   type="checkbox"
                   checked={r.included}
                   onChange={() => setRows(prev => prev.map((p, j) => j === i ? { ...p, included: !p.included } : p))}
-                  className="accent-indigo-600"
+                  className="accent-primary"
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-700 truncate">{r.description}</p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-sm text-content truncate">{r.description}</p>
+                  <p className="text-xs text-content-3">
                     {formatDate(r.date)}
-                    {r.duplicate && <span className="text-amber-600"> · possível duplicata</span>}
+                    {r.duplicate && <span className="text-warning"> · possível duplicata</span>}
                   </p>
                 </div>
-                <span className={`text-sm font-medium flex-shrink-0 ${r.type === 'expense' ? 'text-slate-700' : 'text-emerald-600'}`}>
+                <span className={`text-sm font-medium flex-shrink-0 ${r.type === 'expense' ? 'text-content' : 'text-success'}`}>
                   {r.type === 'expense' ? '-' : '+'}{formatCurrency(r.amount)}
                 </span>
               </label>
             ))}
           </div>
 
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-content-3">
             {included.length} de {rows.length} selecionada(s). Possíveis duplicatas vêm desmarcadas.
           </p>
 

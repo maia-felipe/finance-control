@@ -1,5 +1,6 @@
 import { format, addMonths, parseISO, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface MonthSelectorProps {
   month: string
@@ -15,9 +16,13 @@ export function MonthSelector({ month, onChange }: MonthSelectorProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <button onClick={prev} className="p-1 rounded-lg hover:bg-slate-100 transition text-slate-500 cursor-pointer">‹</button>
-      <span className="text-sm font-medium text-slate-700 capitalize w-36 text-center">{label}</span>
-      <button onClick={next} className="p-1 rounded-lg hover:bg-slate-100 transition text-slate-500 cursor-pointer">›</button>
+      <button onClick={prev} aria-label="Mês anterior" className="p-1 rounded-lg hover:bg-surface-2 transition text-content-2 cursor-pointer">
+        <ChevronLeft size={16} />
+      </button>
+      <span className="text-sm font-medium text-content capitalize w-36 text-center">{label}</span>
+      <button onClick={next} aria-label="Próximo mês" className="p-1 rounded-lg hover:bg-surface-2 transition text-content-2 cursor-pointer">
+        <ChevronRight size={16} />
+      </button>
     </div>
   )
 }

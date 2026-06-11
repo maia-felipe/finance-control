@@ -1,11 +1,12 @@
 import { useSyncExternalStore } from 'react'
+import { X } from 'lucide-react'
 import { subscribeToasts, getToasts, dismissToast } from '../../lib/toast'
 import type { ToastType } from '../../lib/toast'
 
 const STYLES: Record<ToastType, string> = {
-  error: 'bg-red-50 border-red-200 text-red-700',
-  success: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-  info: 'bg-indigo-50 border-indigo-200 text-indigo-700',
+  error: 'bg-danger-soft border-danger/25 text-danger',
+  success: 'bg-success-soft border-success/25 text-success',
+  info: 'bg-accent-soft border-accent/25 text-accent',
 }
 
 export function Toaster() {
@@ -28,7 +29,7 @@ export function Toaster() {
             className="text-current opacity-60 hover:opacity-100 cursor-pointer leading-none"
             aria-label="Fechar"
           >
-            ✕
+            <X size={14} />
           </button>
         </div>
       ))}

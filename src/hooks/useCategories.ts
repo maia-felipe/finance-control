@@ -6,18 +6,18 @@ import { useAuth } from '../contexts/AuthContext'
 import { persist } from '../lib/persist'
 import { toast } from '../lib/toast'
 
-type DefaultCategory = Pick<Category, 'name' | 'type' | 'color'>
+type DefaultCategory = Pick<Category, 'name' | 'type' | 'color' | 'icon'>
 
 const DEFAULT_CATEGORIES: DefaultCategory[] = [
-  { name: 'Alimentação', type: 'expense', color: '#f97316' },
-  { name: 'Transporte', type: 'expense', color: '#3b82f6' },
-  { name: 'Moradia', type: 'expense', color: '#8b5cf6' },
-  { name: 'Saúde', type: 'expense', color: '#10b981' },
-  { name: 'Lazer', type: 'expense', color: '#ec4899' },
-  { name: 'Educação', type: 'expense', color: '#eab308' },
-  { name: 'Outros', type: 'expense', color: '#6b7280' },
-  { name: 'Salário', type: 'income', color: '#16a34a' },
-  { name: 'Freelance', type: 'income', color: '#0d9488' },
+  { name: 'Alimentação', type: 'expense', color: '#f97316', icon: 'utensils' },
+  { name: 'Transporte', type: 'expense', color: '#3b82f6', icon: 'car' },
+  { name: 'Moradia', type: 'expense', color: '#8b5cf6', icon: 'home' },
+  { name: 'Saúde', type: 'expense', color: '#10b981', icon: 'heart-pulse' },
+  { name: 'Lazer', type: 'expense', color: '#ec4899', icon: 'gamepad-2' },
+  { name: 'Educação', type: 'expense', color: '#eab308', icon: 'graduation-cap' },
+  { name: 'Outros', type: 'expense', color: '#6b7280', icon: 'tag' },
+  { name: 'Salário', type: 'income', color: '#16a34a', icon: 'banknote' },
+  { name: 'Freelance', type: 'income', color: '#0d9488', icon: 'laptop' },
 ]
 
 function rowToCategory(row: Record<string, unknown>): Category {
@@ -26,6 +26,7 @@ function rowToCategory(row: Record<string, unknown>): Category {
     name: row.name as string,
     type: row.type as Category['type'],
     color: row.color as string,
+    icon: (row.icon as string | null) ?? undefined,
     excludeFromCharts: (row.exclude_from_charts as boolean | null) ?? false,
     subcategories: (row.subcategories as string[] | null) ?? [],
   }
@@ -78,7 +79,7 @@ export function useCategories() {
           }))
           const rows = seeded.map((c, i) => ({
             id: c.id, user_id: userId, name: c.name, type: c.type,
-            color: c.color, sort_order: i, exclude_from_charts: false,
+            color: c.color, icon: c.icon ?? null, sort_order: i, exclude_from_charts: false,
           }))
           const { error: seedError } = await supabase.from('categories').insert(rows)
           if (seedError) {
@@ -103,7 +104,7 @@ export function useCategories() {
     setCategories(prev => {
       persist('Não foi possível salvar a categoria.', supabase.from('categories').insert({
         id: newCat.id, user_id: user.id, name: newCat.name, type: newCat.type,
-        color: newCat.color, sort_order: prev.length,
+        color: newCat.color, icon: newCat.icon ?? null, sort_order: prev.length,
         exclude_from_charts: newCat.excludeFromCharts ?? false,
         subcategories: newCat.subcategories ?? [],
       }), reload)

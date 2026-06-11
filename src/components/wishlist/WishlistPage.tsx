@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { addMonths, format, parseISO } from 'date-fns'
+import { Check, Pencil, Trash2, Undo2, ExternalLink } from 'lucide-react'
 import { useWishlist } from '../../hooks/useWishlist'
 import { useTransactions } from '../../hooks/useTransactions'
 import { Card } from '../ui/Card'
@@ -116,7 +117,7 @@ export function WishlistPage() {
   if (loading) {
     return (
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
-        <p className="text-sm text-slate-400 text-center py-10">Carregando...</p>
+        <p className="text-sm text-content-3 text-center py-10">Carregando...</p>
       </div>
     )
   }
@@ -124,7 +125,7 @@ export function WishlistPage() {
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-slate-800">Desejos</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-content">Desejos</h1>
         <Button onClick={() => setShowAdd(true)}>+ Novo item</Button>
       </div>
 
@@ -133,18 +134,18 @@ export function WishlistPage() {
       <AiInsightCard type="wishlist" month={currentMonth()} title="Conselheiro de compras com IA" />
 
       {selectedIds.size > 0 && (
-        <div className="sticky top-16 z-30 bg-white border border-indigo-100 rounded-xl shadow-sm px-4 py-3 mb-4 flex items-center justify-between gap-3">
+        <div className="sticky top-16 z-30 bg-surface border border-accent-soft rounded-xl shadow-sm px-4 py-3 mb-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-800">
+            <p className="text-sm font-semibold text-content">
               {selectedIds.size} item(s) — {formatCurrency(selectedMonthlyTotal)}/mês
               {selectedTotal !== selectedMonthlyTotal && (
-                <span className="text-xs font-normal text-slate-400 ml-1">(total: {formatCurrency(selectedTotal)})</span>
+                <span className="text-xs font-normal text-content-3 ml-1">(total: {formatCurrency(selectedTotal)})</span>
               )}
             </p>
-            <p className={`text-xs mt-0.5 ${selectionFits ? 'text-emerald-600' : 'text-red-500'}`}>
+            <p className={`text-xs mt-0.5 ${selectionFits ? 'text-success' : 'text-danger'}`}>
               {selectionFits
-                ? `✅ Cabe nesse mês (saldo: ${formatCurrency(availableBalance)})`
-                : `❌ Falta ${formatCurrency(selectedMonthlyTotal - availableBalance)}/mês (saldo: ${formatCurrency(availableBalance)})`}
+                ? `Cabe nesse mês (saldo: ${formatCurrency(availableBalance)})`
+                : `Falta ${formatCurrency(selectedMonthlyTotal - availableBalance)}/mês (saldo: ${formatCurrency(availableBalance)})`}
             </p>
           </div>
           <Button size="sm" variant="secondary" onClick={() => setSelectedIds(new Set())}>
@@ -155,20 +156,20 @@ export function WishlistPage() {
 
       {items.length === 0 ? (
         <Card>
-          <p className="text-sm text-slate-400 text-center py-10">
+          <p className="text-sm text-content-3 text-center py-10">
             Sua lista está vazia.<br />
-            <span className="text-indigo-500 cursor-pointer" onClick={() => setShowAdd(true)}>Adicionar o primeiro item →</span>
+            <span className="text-accent cursor-pointer" onClick={() => setShowAdd(true)}>Adicionar o primeiro item →</span>
           </p>
         </Card>
       ) : (
         Object.entries(grouped).map(([cat, subs]) => (
           <div key={cat} className="mb-6">
-            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">{cat}</h2>
+            <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide mb-3">{cat}</h2>
             {Object.entries(subs).map(([sub, list]) => (
               <div key={sub} className={sub !== ROOT_SUB_KEY ? 'ml-3 mb-4' : 'mb-4'}>
                 {sub !== ROOT_SUB_KEY && (
-                  <h3 className="text-xs font-medium text-slate-400 mb-2 flex items-center gap-1.5">
-                    <span className="w-1 h-3 bg-slate-200 rounded-full" />
+                  <h3 className="text-xs font-medium text-content-3 mb-2 flex items-center gap-1.5">
+                    <span className="w-1 h-3 bg-border rounded-full" />
                     {sub}
                   </h3>
                 )}
@@ -181,31 +182,31 @@ export function WishlistPage() {
                             type="checkbox"
                             checked={selectedIds.has(item.id)}
                             onChange={() => toggleSelection(item.id)}
-                            className="mt-1 w-4 h-4 shrink-0 rounded accent-indigo-500 cursor-pointer"
+                            className="mt-1 w-4 h-4 shrink-0 rounded accent-primary cursor-pointer"
                           />
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <StarRating value={item.priority} />
-                            <p className={`text-sm font-semibold ${item.purchased ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                            <p className={`text-sm font-semibold ${item.purchased ? 'line-through text-content-3' : 'text-content'}`}>
                               {item.name}
                             </p>
                           </div>
                           <div className="flex items-center gap-3 text-sm">
-                            <span className="font-medium text-indigo-600">{formatCurrency(item.price)}</span>
+                            <span className="font-medium text-accent">{formatCurrency(item.price)}</span>
                             {item.url && (
                               <a
                                 href={item.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-xs text-slate-500 hover:text-indigo-600 transition"
+                                className="inline-flex items-center gap-1 text-xs text-content-2 hover:text-accent transition"
                               >
-                                🔗 link
+                                <ExternalLink size={11} /> link
                               </a>
                             )}
                           </div>
                           {item.notes && (
-                            <p className="text-xs text-slate-400 mt-1 italic">{item.notes}</p>
+                            <p className="text-xs text-content-3 mt-1 italic">{item.notes}</p>
                           )}
                         </div>
                         <div className="flex gap-1 shrink-0">
@@ -215,8 +216,9 @@ export function WishlistPage() {
                               variant="ghost"
                               onClick={() => handleUndoPurchase(item)}
                               title="Desfazer compra (remove a transação criada)"
+                              aria-label="Desfazer compra"
                             >
-                              ↩️
+                              <Undo2 size={14} />
                             </Button>
                           ) : (
                             <Button
@@ -224,8 +226,9 @@ export function WishlistPage() {
                               variant="ghost"
                               onClick={() => setMarkingPurchased(item)}
                               title="Marcar como comprado e registrar gasto"
+                              aria-label="Marcar como comprado"
                             >
-                              ✓
+                              <Check size={14} />
                             </Button>
                           )}
                           <Button
@@ -233,16 +236,18 @@ export function WishlistPage() {
                             variant="ghost"
                             onClick={() => setEditing(item)}
                             title="Editar"
+                            aria-label="Editar"
                           >
-                            ✏️
+                            <Pencil size={14} />
                           </Button>
                           <Button
                             size="sm"
                             variant="danger"
                             onClick={() => deleteItem(item.id)}
                             title="Remover item"
+                            aria-label="Remover item"
                           >
-                            🗑️
+                            <Trash2 size={14} />
                           </Button>
                         </div>
                       </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Sparkles } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useProfile } from '../../hooks/useProfile'
 import { Card } from '../ui/Card'
@@ -55,7 +56,9 @@ export function AiInsightCard({ type, month, title }: AiInsightCardProps) {
   return (
     <Card className="mb-6">
       <div className="flex items-center justify-between gap-3 mb-2">
-        <h2 className="text-sm font-semibold text-slate-800">✨ {title}</h2>
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content">
+          <Sparkles size={15} className="text-accent" /> {title}
+        </h2>
         {isPremium && (
           <Button size="sm" variant="secondary" onClick={generate} disabled={generating}>
             {generating ? 'Analisando...' : content ? 'Atualizar' : 'Gerar análise'}
@@ -65,7 +68,7 @@ export function AiInsightCard({ type, month, title }: AiInsightCardProps) {
 
       {!isPremium ? (
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <p className="text-sm text-slate-500 flex-1">
+          <p className="text-sm text-content-2 flex-1">
             {profile?.plan === 'trial'
               ? 'Seu período de teste terminou. Assine o Premium para continuar usando as análises com IA.'
               : 'Análises personalizadas com IA são um recurso do plano Premium.'}
@@ -73,9 +76,9 @@ export function AiInsightCard({ type, month, title }: AiInsightCardProps) {
           <Button size="sm" onClick={startCheckout}>Assinar Premium</Button>
         </div>
       ) : content ? (
-        <p className="text-sm text-slate-600 whitespace-pre-wrap">{content}</p>
+        <p className="text-sm text-content-2 whitespace-pre-wrap">{content}</p>
       ) : (
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-content-3">
           {generating
             ? 'Gerando análise personalizada dos seus dados...'
             : 'Gere uma análise personalizada dos seus dados com IA.'}

@@ -19,7 +19,7 @@ export function StarRating({ value, onChange, size = 'sm' }: StarRatingProps) {
             type="button"
             onClick={() => onChange!(i)}
             className={`${sizeClass} leading-none cursor-pointer transition-colors ${
-              filled ? 'text-amber-400 hover:text-amber-500' : 'text-slate-200 hover:text-amber-300'
+              filled ? 'text-warning' : 'text-border hover:text-warning'
             }`}
             aria-label={`Definir prioridade ${i}`}
           >
@@ -28,7 +28,7 @@ export function StarRating({ value, onChange, size = 'sm' }: StarRatingProps) {
         ) : (
           <span
             key={i}
-            className={`${sizeClass} leading-none ${filled ? 'text-amber-400' : 'text-slate-200'}`}
+            className={`${sizeClass} leading-none ${filled ? 'text-warning' : 'text-border'}`}
           >
             ★
           </span>

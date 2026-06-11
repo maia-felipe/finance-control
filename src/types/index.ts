@@ -18,6 +18,8 @@ export interface Category {
   name: string
   type: CategoryType
   color: string
+  /** Nome do ícone (kebab-case) do registro em src/lib/categoryIcons.ts */
+  icon?: string
   excludeFromCharts?: boolean
   subcategories?: string[]
 }
