@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { AuthPage } from './components/auth/AuthPage'
 import { UpdatePasswordPage } from './components/auth/UpdatePasswordPage'
+import { Toaster } from './components/ui/Toaster'
 import { Navbar } from './components/layout/Navbar'
 import type { Tab } from './components/layout/Navbar'
 import { DashboardPage } from './components/dashboard/DashboardPage'
@@ -54,6 +55,7 @@ function App() {
   return (
     <AuthProvider>
       <AppContent />
+      <Toaster />
     </AuthProvider>
   )
 }

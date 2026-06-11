@@ -1,28 +1,32 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Transaction, TransactionType } from '../types'
 import { generateId } from '../utils/generateId'
 import { useAuth } from '../contexts/AuthContext'
+import { persist } from '../lib/persist'
+import { toast } from '../lib/toast'
 
 export function useTransactions() {
   const { user } = useAuth()
+  const userId = user?.id
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const userId = user?.id
-    if (!userId) {
-      setTransactions([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
+  // Busca o estado atual no Supabase. Também usada como "rollback" das
+  // mutações otimistas: se uma gravação falha, ressincroniza com o banco.
+  const reload = useCallback(() => {
+    // Sem usuário não há o que buscar — as páginas que usam o hook nem montam.
+    if (!userId) return
     supabase
       .from('transactions')
       .select('*')
       .eq('user_id', userId)
       .order('date', { ascending: false })
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('loadTransactions:', error)
+          toast.error('Não foi possível carregar as transações.')
+        }
         if (data) setTransactions(data.map(row => ({
           id: row.id, date: row.date, amount: row.amount,
           type: row.type, categoryId: row.category_id,
@@ -33,23 +37,22 @@ export function useTransactions() {
         else setTransactions([])
         setLoading(false)
       })
-  }, [user?.id])
+  }, [userId])
+
+  useEffect(() => {
+    reload()
+  }, [reload])
 
   const addTransaction = (data: Omit<Transaction, 'id'>): string => {
     if (!user) return ''
     const newTx: Transaction = { ...data, id: generateId() }
     setTransactions(prev => [newTx, ...prev])
-    supabase.from('transactions').insert({
+    persist('Não foi possível salvar a transação.', supabase.from('transactions').insert({
       id: newTx.id, user_id: user.id, date: newTx.date, amount: newTx.amount, type: newTx.type,
       category_id: newTx.categoryId, description: newTx.description, recurring: newTx.recurring,
       investment_id: newTx.investmentId ?? null,
       installment_group_id: newTx.installmentGroupId ?? null,
-    }).then(({ error }) => {
-      if (error) {
-        console.error('addTransaction:', error)
-        setTransactions(prev => prev.filter(t => t.id !== newTx.id))
-      }
-    })
+    }), reload)
     return newTx.id
   }
 
@@ -62,16 +65,14 @@ export function useTransactions() {
     if (data.categoryId !== undefined) patch.category_id = data.categoryId
     if (data.description !== undefined) patch.description = data.description
     if (data.recurring !== undefined) patch.recurring = data.recurring
-    supabase.from('transactions').update(patch).eq('id', id).then(({ error }) => {
-      if (error) console.error('updateTransaction:', error)
-    })
+    persist('Não foi possível atualizar a transação.',
+      supabase.from('transactions').update(patch).eq('id', id), reload)
   }
 
   const deleteTransaction = (id: string) => {
     setTransactions(prev => prev.filter(t => t.id !== id))
-    supabase.from('transactions').delete().eq('id', id).then(({ error }) => {
-      if (error) console.error('deleteTransaction:', error)
-    })
+    persist('Não foi possível excluir a transação.',
+      supabase.from('transactions').delete().eq('id', id), reload)
   }
 
   const getByMonth = (month: string) => transactions.filter(t => t.date.startsWith(month))
@@ -83,27 +84,22 @@ export function useTransactions() {
 
   const retypeByCategory = (categoryId: string, newType: TransactionType) => {
     setTransactions(prev => prev.map(t => t.categoryId === categoryId ? { ...t, type: newType } : t))
-    supabase.from('transactions').update({ type: newType }).eq('category_id', categoryId).then(({ error }) => {
-      if (error) console.error('retypeByCategory:', error)
-    })
+    persist('Não foi possível atualizar as transações da categoria.',
+      supabase.from('transactions').update({ type: newType }).eq('category_id', categoryId), reload)
   }
 
   const deleteByInvestmentId = (investmentId: string) => {
     setTransactions(prev => prev.filter(t => t.investmentId !== investmentId))
-    supabase.from('transactions').delete().eq('investment_id', investmentId).then(({ error }) => {
-      if (error) console.error('deleteByInvestmentId:', error)
-    })
+    persist('Não foi possível excluir as transações do investimento.',
+      supabase.from('transactions').delete().eq('investment_id', investmentId), reload)
   }
 
   // Remove transações associadas a uma compra da wishlist.
   // Pode ser um id de transação única OU um installment_group_id (compra parcelada).
   const removeByPurchaseRef = (ref: string) => {
     setTransactions(prev => prev.filter(t => t.id !== ref && t.installmentGroupId !== ref))
-    supabase.from('transactions').delete()
-      .or(`id.eq.${ref},installment_group_id.eq.${ref}`)
-      .then(({ error }) => {
-        if (error) console.error('removeByPurchaseRef:', error)
-      })
+    persist('Não foi possível excluir as transações da compra.',
+      supabase.from('transactions').delete().or(`id.eq.${ref},installment_group_id.eq.${ref}`), reload)
   }
 
   return { transactions, loading, addTransaction, updateTransaction, deleteTransaction, getByMonth, getCumulativeBalance, retypeByCategory, deleteByInvestmentId, removeByPurchaseRef }
