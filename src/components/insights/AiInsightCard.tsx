@@ -31,8 +31,22 @@ export function AiInsightCard({ type, month, title }: AiInsightCardProps) {
     })
     setGenerating(false)
     if (error || !data?.content) {
-      console.error('aiInsight:', error ?? data)
-      toast.error('Não foi possível gerar a análise. Tente novamente em instantes.')
+      let message = 'Não foi possível gerar a análise. Tente novamente em instantes.'
+      // FunctionsHttpError carrega a Response original em `context` — é lá que
+      // está o corpo JSON com o motivo real (premium_required, generation_limit, etc.)
+      if (error && 'context' in error) {
+        try {
+          const body = await (error as unknown as { context: Response }).context.json()
+          console.error('aiInsight:', body)
+          if (body?.error === 'premium_required') message = 'Recurso disponível apenas para assinantes Premium.'
+          else if (body?.message) message = body.message
+        } catch {
+          console.error('aiInsight:', error)
+        }
+      } else {
+        console.error('aiInsight:', error ?? data)
+      }
+      toast.error(message)
       return
     }
     setResult({ key, content: data.content })

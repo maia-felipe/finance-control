@@ -168,11 +168,14 @@ Deno.serve(async (req) => {
       ? 'Você é um consultor financeiro pessoal brasileiro. Analise os dados do mês do usuário (valores em R$) e escreva um resumo curto e útil em português: principais variações vs. mês anterior, categorias que mais pesaram, sinais de atenção (orçamento estourado, gastos atípicos) e uma recomendação prática. Seja direto e específico com números. Máximo ~250 palavras, sem markdown pesado (apenas parágrafos curtos e, se precisar, listas com "-").'
       : 'Você é um consultor financeiro pessoal brasileiro. O usuário tem uma lista de desejos de compras (valores em R$), histórico recente de receitas/gastos e orçamento. Aconselhe em português: quais itens cabem agora sem comprometer o orçamento, o que adiar e para quando (estime meses com base no saldo médio), e se parcelar algum item faz sentido. Considere a prioridade (1-5) dos itens. Seja direto e específico com números. Máximo ~250 palavras, sem markdown pesado (apenas parágrafos curtos e, se precisar, listas com "-").'
 
+    // thinking adaptativo e output_config.effort só são suportados pela
+    // linha Opus/Fable — Haiku e Sonnet retornam invalid_request_error.
+    const supportsEffort = /^claude-(opus|fable|mythos)/.test(MODEL)
+
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 2000,
-      thinking: { type: 'adaptive' },
-      output_config: { effort: 'low' },
+      ...(supportsEffort ? { thinking: { type: 'adaptive' as const }, output_config: { effort: 'low' as const } } : {}),
       system,
       messages: [{ role: 'user', content: JSON.stringify(input) }],
     })
@@ -205,6 +208,10 @@ Deno.serve(async (req) => {
     return json({ content, cached: false })
   } catch (err) {
     console.error('ai-insights:', err)
-    return json({ error: 'Erro ao gerar a análise' }, 500)
+    // Detalhe temporário para diagnóstico — remover depois de confirmar a causa.
+    const detail = err instanceof Anthropic.APIError
+      ? { status: err.status, message: err.message }
+      : err instanceof Error ? err.message : String(err)
+    return json({ error: 'Erro ao gerar a análise', detail }, 500)
   }
 })
