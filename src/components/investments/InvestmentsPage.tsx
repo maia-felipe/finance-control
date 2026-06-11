@@ -390,6 +390,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <Button size="sm" variant="ghost" onClick={() => setAportando(inv)} title="Registrar aporte">+ Aporte</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setResgatando(inv)} title="Registrar resgate" className="text-danger hover:bg-danger-soft">− Resgatar</Button>
                       <Button size="sm" variant="ghost" onClick={() => setUpdatingValue(inv)} title="Atualizar valor" aria-label="Atualizar valor"><Coins size={14} /></Button>
                       <Button size="sm" variant="ghost" onClick={() => setEditing(inv)} title="Editar" aria-label="Editar"><Pencil size={14} /></Button>
                       <Button size="sm" variant="danger" onClick={() => handleDeleteInvestment(inv.id)} title="Excluir" aria-label="Excluir"><Trash2 size={14} /></Button>
@@ -458,12 +459,14 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
       {/* Aportes e resgates do mês */}
       <div className="mt-6">
         <div className="mb-3">
-          <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">Aportes — <span className="capitalize">{formatMonth(month)}</span></h2>
-          <p className="text-sm font-semibold text-accent mt-0.5">{formatCurrency(totalInvestedMonth)}</p>
+          <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">Aportes e resgates — <span className="capitalize">{formatMonth(month)}</span></h2>
+          <p className={`text-sm font-semibold mt-0.5 ${totalInvestedMonth >= 0 ? 'text-accent' : 'text-danger'}`}>
+            {totalInvestedMonth >= 0 ? '' : '− '}{formatCurrency(Math.abs(totalInvestedMonth))}
+          </p>
         </div>
         <Card className="!p-0 overflow-hidden">
           {investmentTxs.length === 0 ? (
-            <p className="text-sm text-content-3 text-center py-8">Nenhum aporte registrado neste mês.</p>
+            <p className="text-sm text-content-3 text-center py-8">Nenhum aporte ou resgate registrado neste mês.</p>
           ) : (
             <div className="divide-y divide-border-subtle">
               {investmentTxs.map(t => {
@@ -482,10 +485,12 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 ml-3">
-                      <span className="text-sm font-semibold text-accent">{formatCurrency(t.amount)}</span>
+                      <span className={`text-sm font-semibold ${isResgate ? 'text-danger' : 'text-accent'}`}>
+                        {isResgate ? '− ' : ''}{formatCurrency(t.amount)}
+                      </span>
                       <div className="flex gap-1">
                         <Button size="sm" variant="ghost" onClick={() => setEditingTx(t)} title="Editar" aria-label="Editar"><Pencil size={14} /></Button>
-                        <Button size="sm" variant="danger" onClick={() => handleDeleteAporteTx(t.id, t.investmentId, t.amount)} title="Excluir" aria-label="Excluir"><Trash2 size={14} /></Button>
+                        <Button size="sm" variant="danger" onClick={() => handleDeleteAporteTx(t)} title="Excluir" aria-label="Excluir"><Trash2 size={14} /></Button>
                       </div>
                     </div>
                   </div>
