@@ -1,4 +1,5 @@
 import { MonthSelector } from './MonthSelector'
+import { PlanBadge } from './PlanBadge'
 import { useAuth } from '../../contexts/AuthContext'
 
 type Tab = 'dashboard' | 'expenses' | 'income' | 'investments' | 'budget' | 'wishlist' | 'categories' | 'reports'
@@ -57,6 +58,7 @@ export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarP
           <MonthSelector month={month} onChange={onMonthChange} />
           {user && (
             <div className="flex items-center gap-2 pl-3 border-l border-slate-100">
+              <PlanBadge />
               <span className="text-xs text-slate-500 truncate max-w-45" title={user.email ?? ''}>{user.email}</span>
               <button
                 onClick={signOut}
@@ -75,6 +77,7 @@ export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarP
       <header className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 sticky top-0 z-40">
         <span className="text-base font-bold text-indigo-600">💰 FinanControl</span>
         <div className="flex items-center gap-2">
+          <PlanBadge />
           <MonthSelector month={month} onChange={onMonthChange} />
           {user && (
             <button

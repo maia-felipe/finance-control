@@ -1,5 +1,16 @@
 export type TransactionType = 'income' | 'expense' | 'investment'
 
+export type Plan = 'trial' | 'free' | 'premium'
+
+export type UserRole = 'user' | 'tester' | 'admin'
+
+export interface Profile {
+  plan: Plan
+  role: UserRole
+  trialEndsAt: string
+  stripeCustomerId?: string
+}
+
 export type CategoryType = 'income' | 'expense' | 'investment' | 'both'
 
 export interface Category {
