@@ -5,6 +5,7 @@ import { useBudget } from '../../hooks/useBudget'
 import { formatCurrency } from '../../utils/formatCurrency'
 import { exportToCSV } from '../../utils/exportCSV'
 import { Card } from '../ui/Card'
+import { AiInsightCard } from '../insights/AiInsightCard'
 import { Button } from '../ui/Button'
 import { PeriodSelector } from '../ui/PeriodSelector'
 import type { Period } from '../ui/PeriodSelector'
@@ -62,6 +63,8 @@ export function ReportsPage({ month }: ReportsPageProps) {
           <Button variant="secondary" size="sm" onClick={handleExportAll}>⬇ Exportar tudo</Button>
         </div>
       </div>
+
+      <AiInsightCard type="monthly_report" month={month} title="Resumo do mês com IA" />
 
       {/* Line chart */}
       <Card className="mb-5">

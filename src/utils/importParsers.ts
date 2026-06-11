@@ -35,7 +35,7 @@ function detectDelimiter(line: string): string {
 // Parser CSV com suporte a campos entre aspas (incluindo aspas escapadas e
 // quebras de linha dentro de aspas) e detecção automática de , ; ou tab.
 export function parseCsv(text: string): CsvData {
-  const clean = text.replace(/^﻿/, '')
+  const clean = text.replace(/^\ufeff/, '')
   const firstLine = clean.slice(0, clean.indexOf('\n') === -1 ? undefined : clean.indexOf('\n'))
   const delim = detectDelimiter(firstLine)
 

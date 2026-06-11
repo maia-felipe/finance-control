@@ -30,47 +30,52 @@ export function useTransactions() {
 
   // Busca o estado atual no Supabase. Também usada como "rollback" das
   // mutações otimistas: se uma gravação falha, ressincroniza com o banco.
+  // run é uma function declaration (içada) para poder se referenciar como
+  // resync no insert das recorrências sem "usar antes de declarar".
   const reload = useCallback(() => {
-    // Sem usuário não há o que buscar — as páginas que usam o hook nem montam.
-    if (!userId) return
-    supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('loadTransactions:', error)
-          toast.error('Não foi possível carregar as transações.')
-        }
-        let txs: Transaction[] = data ? data.map(row => ({
-          id: row.id, date: row.date, amount: row.amount,
-          type: row.type, categoryId: row.category_id,
-          description: row.description, recurring: row.recurring,
-          investmentId: row.investment_id ?? undefined,
-          installmentGroupId: row.installment_group_id ?? undefined,
-        })) : []
-
-        // Motor de recorrência: materializa as ocorrências do mês corrente
-        // das transações recorrentes (uma vez por usuário/mês por sessão).
-        const month = currentMonth()
-        const runKey = `${userId}:${month}`
-        if (!error && !recurringRuns.has(runKey)) {
-          recurringRuns.add(runKey)
-          const created = materializeRecurring(txs, month)
-          if (created.length > 0) {
-            txs = [...created, ...txs].sort((a, b) => b.date.localeCompare(a.date))
-            persist('Não foi possível lançar as transações recorrentes.',
-              supabase.from('transactions').insert(created.map(t => txToRow(t, userId))), reload)
-            toast.info(created.length === 1
-              ? '1 transação recorrente lançada.'
-              : `${created.length} transações recorrentes lançadas.`)
+    function run() {
+      // Sem usuário não há o que buscar — as páginas que usam o hook nem montam.
+      if (!userId) return
+      supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('date', { ascending: false })
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('loadTransactions:', error)
+            toast.error('Não foi possível carregar as transações.')
           }
-        }
+          let txs: Transaction[] = data ? data.map(row => ({
+            id: row.id, date: row.date, amount: row.amount,
+            type: row.type, categoryId: row.category_id,
+            description: row.description, recurring: row.recurring,
+            investmentId: row.investment_id ?? undefined,
+            installmentGroupId: row.installment_group_id ?? undefined,
+          })) : []
 
-        setTransactions(txs)
-        setLoading(false)
-      })
+          // Motor de recorrência: materializa as ocorrências do mês corrente
+          // das transações recorrentes (uma vez por usuário/mês por sessão).
+          const month = currentMonth()
+          const runKey = `${userId}:${month}`
+          if (!error && !recurringRuns.has(runKey)) {
+            recurringRuns.add(runKey)
+            const created = materializeRecurring(txs, month)
+            if (created.length > 0) {
+              txs = [...created, ...txs].sort((a, b) => b.date.localeCompare(a.date))
+              persist('Não foi possível lançar as transações recorrentes.',
+                supabase.from('transactions').insert(created.map(t => txToRow(t, userId!))), run)
+              toast.info(created.length === 1
+                ? '1 transação recorrente lançada.'
+                : `${created.length} transações recorrentes lançadas.`)
+            }
+          }
+
+          setTransactions(txs)
+          setLoading(false)
+        })
+    }
+    run()
   }, [userId])
 
   useEffect(() => {

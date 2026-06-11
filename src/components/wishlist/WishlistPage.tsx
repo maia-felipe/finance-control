@@ -11,6 +11,8 @@ import { StarRating } from './StarRating'
 import { WishlistForm } from './WishlistForm'
 import { PurchaseForm } from './PurchaseForm'
 import { WishlistInsights } from './WishlistInsights'
+import { AiInsightCard } from '../insights/AiInsightCard'
+import { currentMonth } from '../../utils/formatDate'
 import type { PurchaseFormData } from './PurchaseForm'
 import type { WishlistItem } from '../../types'
 
@@ -127,6 +129,8 @@ export function WishlistPage() {
       </div>
 
       <WishlistInsights items={items} transactions={transactions} availableBalance={availableBalance} />
+
+      <AiInsightCard type="wishlist" month={currentMonth()} title="Conselheiro de compras com IA" />
 
       {selectedIds.size > 0 && (
         <div className="sticky top-16 z-30 bg-white border border-indigo-100 rounded-xl shadow-sm px-4 py-3 mb-4 flex items-center justify-between gap-3">
