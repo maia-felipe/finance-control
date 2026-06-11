@@ -5,6 +5,22 @@ import { generateId } from '../utils/generateId'
 import { useAuth } from '../contexts/AuthContext'
 import { persist } from '../lib/persist'
 import { toast } from '../lib/toast'
+import { materializeRecurring } from '../lib/recurring'
+import { currentMonth } from '../utils/formatDate'
+
+function txToRow(t: Transaction, userId: string) {
+  return {
+    id: t.id, user_id: userId, date: t.date, amount: t.amount, type: t.type,
+    category_id: t.categoryId, description: t.description, recurring: t.recurring,
+    investment_id: t.investmentId ?? null,
+    installment_group_id: t.installmentGroupId ?? null,
+  }
+}
+
+// Garante que o motor de recorrência rode no máximo uma vez por usuário/mês
+// por sessão (o hook é montado por várias páginas; a checagem por chave de
+// série também o torna idempotente entre dispositivos).
+const recurringRuns = new Set<string>()
 
 export function useTransactions() {
   const { user } = useAuth()
@@ -27,14 +43,32 @@ export function useTransactions() {
           console.error('loadTransactions:', error)
           toast.error('Não foi possível carregar as transações.')
         }
-        if (data) setTransactions(data.map(row => ({
+        let txs: Transaction[] = data ? data.map(row => ({
           id: row.id, date: row.date, amount: row.amount,
           type: row.type, categoryId: row.category_id,
           description: row.description, recurring: row.recurring,
           investmentId: row.investment_id ?? undefined,
           installmentGroupId: row.installment_group_id ?? undefined,
-        })))
-        else setTransactions([])
+        })) : []
+
+        // Motor de recorrência: materializa as ocorrências do mês corrente
+        // das transações recorrentes (uma vez por usuário/mês por sessão).
+        const month = currentMonth()
+        const runKey = `${userId}:${month}`
+        if (!error && !recurringRuns.has(runKey)) {
+          recurringRuns.add(runKey)
+          const created = materializeRecurring(txs, month)
+          if (created.length > 0) {
+            txs = [...created, ...txs].sort((a, b) => b.date.localeCompare(a.date))
+            persist('Não foi possível lançar as transações recorrentes.',
+              supabase.from('transactions').insert(created.map(t => txToRow(t, userId))), reload)
+            toast.info(created.length === 1
+              ? '1 transação recorrente lançada.'
+              : `${created.length} transações recorrentes lançadas.`)
+          }
+        }
+
+        setTransactions(txs)
         setLoading(false)
       })
   }, [userId])
@@ -47,12 +81,8 @@ export function useTransactions() {
     if (!user) return ''
     const newTx: Transaction = { ...data, id: generateId() }
     setTransactions(prev => [newTx, ...prev])
-    persist('Não foi possível salvar a transação.', supabase.from('transactions').insert({
-      id: newTx.id, user_id: user.id, date: newTx.date, amount: newTx.amount, type: newTx.type,
-      category_id: newTx.categoryId, description: newTx.description, recurring: newTx.recurring,
-      investment_id: newTx.investmentId ?? null,
-      installment_group_id: newTx.installmentGroupId ?? null,
-    }), reload)
+    persist('Não foi possível salvar a transação.',
+      supabase.from('transactions').insert(txToRow(newTx, user.id)), reload)
     return newTx.id
   }
 

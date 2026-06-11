@@ -6,6 +6,7 @@ import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { TransactionForm } from './TransactionForm'
+import { ImportModal } from './ImportModal'
 import { formatDate, monthFromDate } from '../../utils/formatDate'
 import { formatCurrency } from '../../utils/formatCurrency'
 
@@ -16,9 +17,10 @@ interface TransactionsPageProps {
 }
 
 export function TransactionsPage({ month, type, onMonthChange }: TransactionsPageProps) {
-  const { getByMonth, addTransaction, updateTransaction, deleteTransaction } = useTransactions()
+  const { transactions, getByMonth, addTransaction, updateTransaction, deleteTransaction } = useTransactions()
   const { getCategoryById, categories } = useCategories()
   const [showAdd, setShowAdd] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [filterCategory, setFilterCategory] = useState('')
   const [search, setSearch] = useState('')
@@ -62,7 +64,10 @@ export function TransactionsPage({ month, type, onMonthChange }: TransactionsPag
             {isExpense ? '-' : '+'}{formatCurrency(total)}
           </p>
         </div>
-        <Button onClick={() => setShowAdd(true)}>{addLabel}</Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setShowImport(true)}>Importar</Button>
+          <Button onClick={() => setShowAdd(true)}>{addLabel}</Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -129,6 +134,14 @@ export function TransactionsPage({ month, type, onMonthChange }: TransactionsPag
           onCancel={() => setShowAdd(false)}
         />
       </Modal>
+
+      <ImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        categories={categories}
+        existingTransactions={transactions}
+        onImport={rows => rows.forEach(r => addTransaction(r))}
+      />
 
       <Modal open={!!editing} onClose={() => setEditing(null)} title={`Editar ${isExpense ? 'gasto' : 'receita'}`}>
         {editing && (
