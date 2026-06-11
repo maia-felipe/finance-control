@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import type { WishlistItem } from '../types'
 import { generateId } from '../utils/generateId'
 import { useAuth } from '../contexts/AuthContext'
+import { persist } from '../lib/persist'
+import { toast } from '../lib/toast'
 
 function rowToItem(row: Record<string, unknown>): WishlistItem {
   return {
@@ -24,27 +26,34 @@ function rowToItem(row: Record<string, unknown>): WishlistItem {
 
 export function useWishlist() {
   const { user } = useAuth()
+  const userId = user?.id
   const [items, setItems] = useState<WishlistItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const userId = user?.id
-    if (!userId) {
-      setItems([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
+  // Busca o estado atual no Supabase. Também usada como "rollback" das
+  // mutações otimistas: se uma gravação falha, ressincroniza com o banco.
+  const reload = useCallback(() => {
+    // Sem usuário não há o que buscar — as páginas que usam o hook nem montam.
+    if (!userId) return
     supabase
       .from('wishlist_items')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('loadWishlist:', error)
+          toast.error('Não foi possível carregar a lista de desejos.')
+        }
         if (data) setItems(data.map(rowToItem))
         else setItems([])
         setLoading(false)
       })
-  }, [user?.id])
+  }, [userId])
+
+  useEffect(() => {
+    reload()
+  }, [reload])
 
   const addItem = (data: Omit<WishlistItem, 'id' | 'createdAt' | 'purchased' | 'purchasedAt'>): string => {
     if (!user) return ''
@@ -56,7 +65,7 @@ export function useWishlist() {
       createdAt,
     }
     setItems(prev => [newItem, ...prev])
-    supabase.from('wishlist_items').insert({
+    persist('Não foi possível salvar o item da lista de desejos.', supabase.from('wishlist_items').insert({
       id: newItem.id,
       user_id: user.id,
       name: newItem.name,
@@ -70,12 +79,7 @@ export function useWishlist() {
       purchased_at: null,
       notes: newItem.notes ?? null,
       created_at: createdAt,
-    }).then(({ error }) => {
-      if (error) {
-        console.error('addItem:', error)
-        setItems(prev => prev.filter(i => i.id !== newItem.id))
-      }
-    })
+    }), reload)
     return newItem.id
   }
 
@@ -93,16 +97,14 @@ export function useWishlist() {
     if (data.purchasedAt !== undefined) patch.purchased_at = data.purchasedAt ?? null
     if (data.transactionId !== undefined) patch.transaction_id = data.transactionId ?? null
     if (data.notes !== undefined) patch.notes = data.notes ?? null
-    supabase.from('wishlist_items').update(patch).eq('id', id).then(({ error }) => {
-      if (error) console.error('updateItem:', error)
-    })
+    persist('Não foi possível atualizar o item da lista de desejos.',
+      supabase.from('wishlist_items').update(patch).eq('id', id), reload)
   }
 
   const deleteItem = (id: string) => {
     setItems(prev => prev.filter(i => i.id !== id))
-    supabase.from('wishlist_items').delete().eq('id', id).then(({ error }) => {
-      if (error) console.error('deleteItem:', error)
-    })
+    persist('Não foi possível excluir o item da lista de desejos.',
+      supabase.from('wishlist_items').delete().eq('id', id), reload)
   }
 
   return { items, loading, addItem, updateItem, deleteItem }

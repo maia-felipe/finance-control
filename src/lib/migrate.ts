@@ -15,6 +15,11 @@ function readLocalStorage<T>(key: string): T[] {
 export async function migrateFromLocalStorage(): Promise<void> {
   if (localStorage.getItem(MIGRATION_FLAG)) return
 
+  // Dados migrados precisam pertencer ao usuário logado — sem isso as linhas
+  // ficariam órfãs (user_id NULL) e seriam rejeitadas pelo RLS.
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
   const transactions = readLocalStorage<Transaction>('fc_transactions')
   const categories = readLocalStorage<Category>('fc_categories')
   const budgets = readLocalStorage<Budget>('fc_budgets')
@@ -30,7 +35,7 @@ export async function migrateFromLocalStorage(): Promise<void> {
     if (categories.length > 0) {
       await supabase.from('categories').upsert(
         categories.map((c, i) => ({
-          id: c.id, name: c.name, type: c.type, color: c.color, sort_order: i,
+          id: c.id, user_id: user.id, name: c.name, type: c.type, color: c.color, sort_order: i,
         }))
       )
     }
@@ -38,7 +43,7 @@ export async function migrateFromLocalStorage(): Promise<void> {
     if (transactions.length > 0) {
       await supabase.from('transactions').upsert(
         transactions.map(t => ({
-          id: t.id, date: t.date, amount: t.amount, type: t.type,
+          id: t.id, user_id: user.id, date: t.date, amount: t.amount, type: t.type,
           category_id: t.categoryId, description: t.description, recurring: t.recurring,
         }))
       )
@@ -47,15 +52,16 @@ export async function migrateFromLocalStorage(): Promise<void> {
     if (budgets.length > 0) {
       await supabase.from('budgets').upsert(
         budgets.map(b => ({
-          month: b.month, total_limit: b.totalLimit, category_limits: b.categoryLimits,
-        }))
+          user_id: user.id, month: b.month, total_limit: b.totalLimit, category_limits: b.categoryLimits,
+        })),
+        { onConflict: 'user_id,month' }
       )
     }
 
     if (investments.length > 0) {
       await supabase.from('investments').upsert(
         investments.map(inv => ({
-          id: inv.id, name: inv.name, category: inv.category,
+          id: inv.id, user_id: user.id, name: inv.name, category: inv.category,
           amount_invested: inv.amountInvested, current_value: inv.currentValue,
           start_date: inv.startDate, last_updated: inv.lastUpdated,
           color: inv.color, notes: inv.notes,

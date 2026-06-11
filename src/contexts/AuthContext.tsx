@@ -10,9 +10,12 @@ interface AuthResult {
 interface AuthContextValue {
   user: User | null
   loading: boolean
+  passwordRecovery: boolean
   signInWithEmail: (email: string, password: string) => Promise<AuthResult>
   signUpWithEmail: (email: string, password: string) => Promise<AuthResult>
   signInWithGoogle: () => Promise<AuthResult>
+  resetPassword: (email: string) => Promise<AuthResult>
+  updatePassword: (password: string) => Promise<AuthResult>
   signOut: () => Promise<void>
 }
 
@@ -21,6 +24,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [passwordRecovery, setPasswordRecovery] = useState(false)
 
   useEffect(() => {
     // Sessão inicial
@@ -30,7 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     // Reagir a login/logout em tempo real
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Usuário chegou pelo link de redefinição de senha do email
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true)
       setUser(session?.user ?? null)
       setLoading(false)
     })
@@ -65,12 +71,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return error ? { error: error.message } : {}
   }
 
+  const resetPassword = async (email: string): Promise<AuthResult> => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    })
+    return error ? { error: error.message } : {}
+  }
+
+  const updatePassword = async (password: string): Promise<AuthResult> => {
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) return { error: error.message }
+    setPasswordRecovery(false)
+    return {}
+  }
+
   const signOut = async () => {
     await supabase.auth.signOut()
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithEmail, signUpWithEmail, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, passwordRecovery, signInWithEmail, signUpWithEmail, signInWithGoogle, resetPassword, updatePassword, signOut }}>
       {children}
     </AuthContext.Provider>
   )

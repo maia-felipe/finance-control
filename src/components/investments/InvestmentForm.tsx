@@ -111,14 +111,14 @@ export function InvestmentForm({ initial, onSubmit, onCancel }: InvestmentFormPr
       />
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">Cor</label>
+        <label className="text-sm font-medium text-content">Cor</label>
         <div className="flex gap-2 flex-wrap">
           {PRESET_COLORS.map(c => (
             <button
               key={c}
               type="button"
               onClick={() => setColor(c)}
-              className={`w-7 h-7 rounded-full transition cursor-pointer ${color === c ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}`}
+              className={`w-7 h-7 rounded-full transition cursor-pointer ${color === c ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : ''}`}
               style={{ backgroundColor: c }}
             />
           ))}
@@ -126,13 +126,13 @@ export function InvestmentForm({ initial, onSubmit, onCancel }: InvestmentFormPr
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">Observações <span className="text-slate-400 font-normal">(opcional)</span></label>
+        <label className="text-sm font-medium text-content">Observações <span className="text-content-3 font-normal">(opcional)</span></label>
         <textarea
           value={notes}
           onChange={e => setNotes(e.target.value)}
           placeholder="Ex: Vence em Jan/2029, taxa 11,5% a.a."
           rows={2}
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition resize-none"
+          className="border border-border bg-surface text-content placeholder:text-content-3 rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition resize-none"
         />
       </div>
 

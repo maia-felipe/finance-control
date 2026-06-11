@@ -101,12 +101,12 @@ export function TransactionForm({ initial, onSubmit, onCancel }: TransactionForm
         placeholder="Ex: Almoço no restaurante"
       />
 
-      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+      <label className="flex items-center gap-2 text-sm text-content cursor-pointer">
         <input
           type="checkbox"
           checked={recurring}
           onChange={e => setRecurring(e.target.checked)}
-          className="rounded border-slate-300"
+          className="rounded border-border"
         />
         Recorrente
       </label>

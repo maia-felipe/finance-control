@@ -5,7 +5,8 @@
       "Bash(npm install *)",
       "Bash(npx tsc *)",
       "Bash(npm run *)",
-      "Bash(npm ls *)"
+      "Bash(npm ls *)",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies['lucide-react']\\)\")"
     ]
   }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Coins, Pencil, Trash2, Repeat } from 'lucide-react'
 import { useInvestments } from '../../hooks/useInvestments'
 import { useTransactions } from '../../hooks/useTransactions'
 import { useCategories } from '../../hooks/useCategories'
@@ -19,9 +20,9 @@ const DEFAULT_RESGATE_CATEGORY_COLOR = '#f97316'
 function SummaryCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
   return (
     <Card className="flex-1 min-w-36">
-      <p className="text-xs text-slate-500 mb-1">{label}</p>
-      <p className={`text-xl font-bold ${color}`}>{value}</p>
-      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
+      <p className="text-xs text-content-2 mb-1">{label}</p>
+      <p className={`text-2xl font-bold tracking-tight ${color}`}>{value}</p>
+      {sub && <p className="text-xs text-content-3 mt-0.5">{sub}</p>}
     </Card>
   )
 }
@@ -34,9 +35,9 @@ function GainBar({ invested, current }: { invested: number; current: number }) {
   const barPct = Math.min(Math.abs(pct), 100)
   return (
     <div className="mt-1.5">
-      <div className="w-full bg-slate-100 rounded-full h-1.5">
+      <div className="w-full bg-surface-2 rounded-full h-1.5">
         <div
-          className={`h-1.5 rounded-full transition-all ${isPositive ? 'bg-emerald-500' : 'bg-red-400'}`}
+          className={`h-1.5 rounded-full transition-all ${isPositive ? 'bg-success' : 'bg-danger'}`}
           style={{ width: `${barPct}%` }}
         />
       </div>
@@ -47,9 +48,9 @@ function GainBar({ invested, current }: { invested: number; current: number }) {
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload?.length) {
     return (
-      <div className="bg-white border border-slate-100 rounded-xl shadow-lg px-3 py-2 text-sm">
-        <p className="font-medium text-slate-700">{payload[0].name}</p>
-        <p className="text-slate-500">{formatCurrency(payload[0].value)}</p>
+      <div className="bg-surface border border-border-subtle rounded-xl shadow-lg px-3 py-2 text-sm">
+        <p className="font-medium text-content">{payload[0].name}</p>
+        <p className="text-content-2">{formatCurrency(payload[0].value)}</p>
       </div>
     )
   }
@@ -69,7 +70,7 @@ function UpdateValueModal({ investment, onSave, onClose }: UpdateValueModalProps
     <Modal open onClose={onClose} title={`Atualizar valor — ${investment.name}`}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">Valor atual (R$)</label>
+          <label className="text-sm font-medium text-content">Valor atual (R$)</label>
           <input
             type="number"
             min="0"
@@ -77,9 +78,9 @@ function UpdateValueModal({ investment, onSave, onClose }: UpdateValueModalProps
             value={value}
             onChange={e => setValue(e.target.value)}
             autoFocus
-            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            className="border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft"
           />
-          <p className="text-xs text-slate-400">Aportado: {formatCurrency(investment.amountInvested)}</p>
+          <p className="text-xs text-content-3">Aportado: {formatCurrency(investment.amountInvested)}</p>
         </div>
         <div className="flex gap-2 justify-end">
           <Button variant="secondary" onClick={onClose}>Cancelar</Button>
@@ -169,7 +170,7 @@ function AporteModal({ investment, onSave, onClose }: AporteModalProps) {
     <Modal open onClose={onClose} title={`Novo aporte — ${investment.name}`}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">Valor do aporte (R$)</label>
+          <label className="text-sm font-medium text-content">Valor do aporte (R$)</label>
           <input
             type="number"
             min="0.01"
@@ -178,17 +179,17 @@ function AporteModal({ investment, onSave, onClose }: AporteModalProps) {
             onChange={e => { setAmount(e.target.value); setError('') }}
             autoFocus
             placeholder="0,00"
-            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            className="border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft"
           />
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-xs text-danger">{error}</p>}
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">Data</label>
+          <label className="text-sm font-medium text-content">Data</label>
           <input
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
-            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            className="border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft"
           />
         </div>
         <div className="flex gap-2 justify-end pt-2">
@@ -343,27 +344,27 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-slate-800">Investimentos</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-content">Investimentos</h1>
         <Button onClick={() => setShowAdd(true)}>+ Novo investimento</Button>
       </div>
 
       {/* Summary cards */}
       <div className="flex gap-3 mb-6 flex-wrap">
-        <SummaryCard label="Total aportado" value={formatCurrency(totalInvested)} color="text-slate-800" />
-        <SummaryCard label="Valor atual" value={formatCurrency(totalCurrent)} color="text-indigo-600" />
+        <SummaryCard label="Total aportado" value={formatCurrency(totalInvested)} color="text-content" />
+        <SummaryCard label="Valor atual" value={formatCurrency(totalCurrent)} color="text-accent" />
         <SummaryCard
           label={totalGain >= 0 ? 'Ganho total' : 'Perda total'}
           value={`${totalGain >= 0 ? '+' : ''}${formatCurrency(totalGain)}`}
-          color={totalGain >= 0 ? 'text-emerald-600' : 'text-red-500'}
+          color={totalGain >= 0 ? 'text-success' : 'text-danger'}
           sub={`${totalGainPct >= 0 ? '+' : ''}${totalGainPct.toFixed(2)}%`}
         />
       </div>
 
       {investments.length === 0 ? (
         <Card>
-          <p className="text-sm text-slate-400 text-center py-10">
+          <p className="text-sm text-content-3 text-center py-10">
             Nenhum investimento cadastrado ainda.<br />
-            <span className="text-indigo-500 cursor-pointer" onClick={() => setShowAdd(true)}>Adicionar o primeiro →</span>
+            <span className="text-accent cursor-pointer" onClick={() => setShowAdd(true)}>Adicionar o primeiro →</span>
           </p>
         </Card>
       ) : (
@@ -380,34 +381,33 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-3 h-3 rounded-full flex-shrink-0 mt-0.5" style={{ backgroundColor: inv.color }} />
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 truncate">{inv.name}</p>
+                        <p className="text-sm font-semibold text-content truncate">{inv.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <Badge color={inv.color} label={inv.category} />
-                          <span className="text-xs text-slate-400">desde {formatDate(inv.startDate)}</span>
+                          <span className="text-xs text-content-3">desde {formatDate(inv.startDate)}</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <Button size="sm" variant="ghost" onClick={() => setAportando(inv)} title="Registrar aporte">+ Aporte</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setResgatando(inv)} title="Registrar resgate" className="text-orange-600 hover:bg-orange-50">− Resgatar</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setUpdatingValue(inv)} title="Atualizar valor">💰</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(inv)}>✏️</Button>
-                      <Button size="sm" variant="danger" onClick={() => handleDeleteInvestment(inv.id)}>🗑️</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setUpdatingValue(inv)} title="Atualizar valor" aria-label="Atualizar valor"><Coins size={14} /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditing(inv)} title="Editar" aria-label="Editar"><Pencil size={14} /></Button>
+                      <Button size="sm" variant="danger" onClick={() => handleDeleteInvestment(inv.id)} title="Excluir" aria-label="Excluir"><Trash2 size={14} /></Button>
                     </div>
                   </div>
 
                   <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
                     <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Aportado</p>
-                      <p className="font-medium text-slate-700">{formatCurrency(inv.amountInvested)}</p>
+                      <p className="text-xs text-content-3 mb-0.5">Aportado</p>
+                      <p className="font-medium text-content">{formatCurrency(inv.amountInvested)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Valor atual</p>
-                      <p className="font-medium text-indigo-600">{formatCurrency(inv.currentValue)}</p>
+                      <p className="text-xs text-content-3 mb-0.5">Valor atual</p>
+                      <p className="font-medium text-accent">{formatCurrency(inv.currentValue)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-400 mb-0.5">Ganho/Perda</p>
-                      <p className={`font-semibold ${isPositive ? 'text-emerald-600' : 'text-red-500'}`}>
+                      <p className="text-xs text-content-3 mb-0.5">Ganho/Perda</p>
+                      <p className={`font-semibold ${isPositive ? 'text-success' : 'text-danger'}`}>
                         {isPositive ? '+' : ''}{formatCurrency(gain)}
                         <span className="text-xs font-normal ml-1">({isPositive ? '+' : ''}{gainPct.toFixed(2)}%)</span>
                       </p>
@@ -417,9 +417,9 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                   <GainBar invested={inv.amountInvested} current={inv.currentValue} />
 
                   {inv.notes && (
-                    <p className="text-xs text-slate-400 mt-2 italic">{inv.notes}</p>
+                    <p className="text-xs text-content-3 mt-2 italic">{inv.notes}</p>
                   )}
-                  <p className="text-xs text-slate-300 mt-1">Atualizado em {formatDate(inv.lastUpdated)}</p>
+                  <p className="text-xs text-content-3 mt-1">Atualizado em {formatDate(inv.lastUpdated)}</p>
                 </Card>
               )
             })}
@@ -428,7 +428,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
           {/* Donut chart — 1 col */}
           <div className="flex flex-col gap-4">
             <Card>
-              <p className="text-sm font-semibold text-slate-700 mb-3">Alocação atual</p>
+              <p className="text-sm font-semibold text-content mb-3">Alocação atual</p>
               <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie data={categoryData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={2}>
@@ -442,11 +442,11 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
               <div className="flex flex-col gap-1.5 mt-2">
                 {categoryData.map((d, i) => (
                   <div key={i} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5 text-slate-600">
+                    <div className="flex items-center gap-1.5 text-content-2">
                       <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
                       {d.name}
                     </div>
-                    <span className="text-slate-500">{formatCurrency(d.value)}</span>
+                    <span className="text-content-2">{formatCurrency(d.value)}</span>
                   </div>
                 ))}
               </div>
@@ -458,16 +458,14 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
       {/* Aportes e resgates do mês */}
       <div className="mt-6">
         <div className="mb-3">
-          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Aportes e resgates — <span className="capitalize">{formatMonth(month)}</span></h2>
-          <p className={`text-sm font-semibold mt-0.5 ${totalInvestedMonth >= 0 ? 'text-indigo-600' : 'text-red-500'}`}>
-            {totalInvestedMonth >= 0 ? '' : '−'}{formatCurrency(Math.abs(totalInvestedMonth))}
-          </p>
+          <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">Aportes — <span className="capitalize">{formatMonth(month)}</span></h2>
+          <p className="text-sm font-semibold text-accent mt-0.5">{formatCurrency(totalInvestedMonth)}</p>
         </div>
         <Card className="!p-0 overflow-hidden">
           {investmentTxs.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-8">Nenhum aporte ou resgate registrado neste mês.</p>
+            <p className="text-sm text-content-3 text-center py-8">Nenhum aporte registrado neste mês.</p>
           ) : (
-            <div className="divide-y divide-slate-50">
+            <div className="divide-y divide-border-subtle">
               {investmentTxs.map(t => {
                 const cat = getCategoryById(t.categoryId)
                 const isResgate = t.type === 'income'
@@ -476,20 +474,18 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-2 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: cat?.color ?? '#8b5cf6' }} />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate">{t.description}</p>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-sm font-medium text-content truncate">{t.description}</p>
+                        <p className="text-xs text-content-3">
                           {formatDate(t.date)} · {cat?.name ?? '—'}
-                          {t.recurring && ' · 🔄'}
+                          {t.recurring && <> · <Repeat size={11} className="inline" aria-label="Recorrente" /></>}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 ml-3">
-                      <span className={`text-sm font-semibold ${isResgate ? 'text-red-500' : 'text-indigo-600'}`}>
-                        {isResgate ? '−' : ''}{formatCurrency(t.amount)}
-                      </span>
+                      <span className="text-sm font-semibold text-accent">{formatCurrency(t.amount)}</span>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => setEditingTx(t)}>✏️</Button>
-                        <Button size="sm" variant="danger" onClick={() => handleDeleteAporteTx(t)}>🗑️</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditingTx(t)} title="Editar" aria-label="Editar"><Pencil size={14} /></Button>
+                        <Button size="sm" variant="danger" onClick={() => handleDeleteAporteTx(t.id, t.investmentId, t.amount)} title="Excluir" aria-label="Excluir"><Trash2 size={14} /></Button>
                       </div>
                     </div>
                   </div>

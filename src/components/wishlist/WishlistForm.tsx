@@ -104,7 +104,7 @@ export function WishlistForm({ initial, onSubmit, onCancel }: WishlistFormProps)
             onChange={e => setPlannedInstallments(Math.max(1, parseInt(e.target.value) || 1))}
           />
           {plannedInstallments > 1 && parseFloat(price) > 0 && (
-            <p className="text-xs text-indigo-600">
+            <p className="text-xs text-accent">
               ≈ R$ {(parseFloat(price) / plannedInstallments).toFixed(2)}/mês
             </p>
           )}
@@ -141,7 +141,7 @@ export function WishlistForm({ initial, onSubmit, onCancel }: WishlistFormProps)
         </Select>
       </div>
       {category && subcategoryOptions.length === 0 && (
-        <p className="text-xs text-slate-400 -mt-2">
+        <p className="text-xs text-content-3 -mt-2">
           Adicione subcategorias na aba <strong>Categorias</strong> ao editar "{category}".
         </p>
       )}
@@ -155,21 +155,21 @@ export function WishlistForm({ initial, onSubmit, onCancel }: WishlistFormProps)
       />
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-slate-700">Prioridade</label>
+        <label className="text-sm font-medium text-content">Prioridade</label>
         <StarRating value={priority} onChange={setPriority} size="lg" />
-        <span className="text-xs text-slate-400">Clique nas estrelas para definir</span>
+        <span className="text-xs text-content-3">Clique nas estrelas para definir</span>
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">
-          Observações <span className="text-slate-400 font-normal">(opcional)</span>
+        <label className="text-sm font-medium text-content">
+          Observações <span className="text-content-3 font-normal">(opcional)</span>
         </label>
         <textarea
           value={notes}
           onChange={e => setNotes(e.target.value)}
           placeholder="Ex: Esperando entrar em promoção"
           rows={2}
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition resize-none"
+          className="border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition resize-none"
         />
       </div>
 

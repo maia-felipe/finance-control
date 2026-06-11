@@ -1,12 +1,16 @@
 import { useState } from 'react'
+import { Wallet } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { ThemeToggle } from '../ui/ThemeToggle'
 import { Card } from '../ui/Card'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 
+type AuthMode = 'login' | 'signup' | 'reset'
+
 export function AuthPage() {
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth()
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, resetPassword } = useAuth()
+  const [mode, setMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -18,6 +22,13 @@ export function AuthPage() {
     setError('')
     setInfo('')
     setSubmitting(true)
+    if (mode === 'reset') {
+      const { error: err } = await resetPassword(email)
+      setSubmitting(false)
+      if (err) setError(err)
+      else setInfo('Enviamos um link de redefinição para seu email.')
+      return
+    }
     const fn = mode === 'login' ? signInWithEmail : signUpWithEmail
     const { error: err } = await fn(email, password)
     setSubmitting(false)
@@ -31,19 +42,25 @@ export function AuthPage() {
     if (err) setError(err)
   }
 
-  const toggleMode = () => {
-    setMode(mode === 'login' ? 'signup' : 'login')
+  const switchMode = (next: AuthMode) => {
+    setMode(next)
     setError('')
     setInfo('')
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-indigo-600">💰 FinanControl</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            {mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}
+          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-accent-soft text-accent mx-auto mb-3">
+            <Wallet size={24} />
+          </div>
+          <h1 className="text-2xl font-bold text-content tracking-tight">FinanControl</h1>
+          <p className="text-sm text-content-2 mt-1">
+            {mode === 'login' ? 'Entre na sua conta' : mode === 'signup' ? 'Crie sua conta' : 'Redefina sua senha'}
           </p>
         </div>
 
@@ -57,31 +74,43 @@ export function AuthPage() {
               autoFocus
               required
             />
-            <Input
-              label="Senha"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              minLength={6}
-              required
-            />
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            {info && <p className="text-sm text-emerald-600">{info}</p>}
+            {mode !== 'reset' && (
+              <Input
+                label="Senha"
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                minLength={6}
+                required
+              />
+            )}
+            {error && <p className="text-sm text-danger">{error}</p>}
+            {info && <p className="text-sm text-success">{info}</p>}
             <Button type="submit" disabled={submitting}>
-              {submitting ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Cadastrar'}
+              {submitting ? 'Aguarde...' : mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Cadastrar' : 'Enviar link de redefinição'}
             </Button>
+            {mode === 'login' && (
+              <button
+                type="button"
+                onClick={() => switchMode('reset')}
+                className="text-sm text-content-2 hover:text-accent hover:underline cursor-pointer self-center"
+              >
+                Esqueci minha senha
+              </button>
+            )}
           </form>
 
+          {mode !== 'reset' && (<>
           <div className="flex items-center gap-3 my-4">
-            <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-xs text-slate-400">ou</span>
-            <div className="flex-1 h-px bg-slate-200" />
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-content-3">ou</span>
+            <div className="flex-1 h-px bg-border" />
           </div>
 
           <button
             type="button"
             onClick={handleGoogle}
-            className="w-full flex items-center justify-center gap-2 border border-slate-200 rounded-lg py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+            className="w-full flex items-center justify-center gap-2 border border-border rounded-lg py-2 text-sm font-medium text-content hover:bg-surface-2 transition cursor-pointer"
           >
             <svg width="18" height="18" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -91,14 +120,15 @@ export function AuthPage() {
             </svg>
             Continuar com Google
           </button>
+          </>)}
         </Card>
 
-        <p className="text-center text-sm text-slate-500 mt-4">
-          {mode === 'login' ? 'Não tem conta? ' : 'Já tem conta? '}
+        <p className="text-center text-sm text-content-2 mt-4">
+          {mode === 'login' ? 'Não tem conta? ' : mode === 'signup' ? 'Já tem conta? ' : 'Lembrou a senha? '}
           <button
             type="button"
-            onClick={toggleMode}
-            className="text-indigo-600 font-medium hover:underline cursor-pointer"
+            onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
+            className="text-accent font-medium hover:underline cursor-pointer"
           >
             {mode === 'login' ? 'Cadastre-se' : 'Faça login'}
           </button>

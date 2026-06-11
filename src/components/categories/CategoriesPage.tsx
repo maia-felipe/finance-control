@@ -14,6 +14,8 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { GripVertical } from 'lucide-react'
+import { CategoryIcon } from '../ui/CategoryIcon'
 import { useCategories } from '../../hooks/useCategories'
 import { useTransactions } from '../../hooks/useTransactions'
 import type { Category } from '../../types'
@@ -50,13 +52,13 @@ function SortableItem({ category, onEdit, onDelete }: SortableItemProps) {
         <button
           {...attributes}
           {...listeners}
-          className="text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing touch-none px-0.5"
+          className="text-content-3 hover:text-content-2 cursor-grab active:cursor-grabbing touch-none px-0.5"
           aria-label="Arrastar para reordenar"
         >
-          ⠿
+          <GripVertical size={15} />
         </button>
-        <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: category.color }} />
-        <span className="text-sm font-medium text-slate-800">{category.name}</span>
+        <CategoryIcon icon={category.icon} color={category.color} size="sm" />
+        <span className="text-sm font-medium text-content">{category.name}</span>
       </div>
       <div className="flex gap-1">
         <Button size="sm" variant="ghost" onClick={() => onEdit(category)}>Editar</Button>
@@ -88,14 +90,14 @@ function SortableSection({ title, categories, onReorder, onEdit, onDelete, empty
 
   return (
     <div>
-      <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">{title}</h2>
+      <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide mb-3">{title}</h2>
       <Card>
         {categories.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-4">{emptyMsg}</p>
+          <p className="text-sm text-content-3 text-center py-4">{emptyMsg}</p>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
-              <div className="divide-y divide-slate-50">
+              <div className="divide-y divide-border-subtle">
                 {categories.map(cat => (
                   <SortableItem key={cat.id} category={cat} onEdit={onEdit} onDelete={onDelete} />
                 ))}
@@ -135,12 +137,12 @@ export function CategoriesPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <h1 className="text-xl font-bold text-slate-800 mb-6">Categorias</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-content mb-6">Categorias</h1>
 
       <div className="grid md:grid-cols-2 gap-6 items-start">
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Gastos</h2>
+            <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">Gastos</h2>
             <Button size="sm" variant="secondary" onClick={() => handleAdd('expense')}>+ Adicionar</Button>
           </div>
           <SortableSection
@@ -155,7 +157,7 @@ export function CategoriesPage() {
 
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Receitas</h2>
+            <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">Receitas</h2>
             <Button size="sm" variant="secondary" onClick={() => handleAdd('income')}>+ Adicionar</Button>
           </div>
           <SortableSection
@@ -170,7 +172,7 @@ export function CategoriesPage() {
 
         <div className="md:col-span-2">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Investimentos</h2>
+            <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">Investimentos</h2>
             <Button size="sm" variant="secondary" onClick={() => handleAdd('investment')}>+ Adicionar</Button>
           </div>
           <SortableSection

@@ -6,6 +6,7 @@ import { useInvestments } from '../../hooks/useInvestments'
 import { formatCurrency } from '../../utils/formatCurrency'
 import { formatMonth } from '../../utils/formatDate'
 import { Card } from '../ui/Card'
+import { CategoryIcon } from '../ui/CategoryIcon'
 import { PeriodSelector } from '../ui/PeriodSelector'
 import type { Period } from '../ui/PeriodSelector'
 import {
@@ -14,6 +15,7 @@ import {
 } from 'recharts'
 import { format, subMonths, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { useChartTheme } from '../../lib/chartTheme'
 
 interface DashboardPageProps {
   month: string
@@ -22,18 +24,18 @@ interface DashboardPageProps {
 function SummaryCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
   return (
     <Card className="flex-1">
-      <p className="text-xs text-slate-500 mb-1">{label}</p>
-      <p className={`text-xl font-bold ${color}`}>{value}</p>
-      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
+      <p className="text-xs text-content-2 mb-1">{label}</p>
+      <p className={`text-2xl font-bold tracking-tight ${color}`}>{value}</p>
+      {sub && <p className="text-xs text-content-3 mt-0.5">{sub}</p>}
     </Card>
   )
 }
 
-function ProgressBar({ value, max, color = 'bg-indigo-500' }: { value: number; max: number; color?: string }) {
+function ProgressBar({ value, max, color = 'bg-primary' }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
-  const barColor = pct >= 100 ? 'bg-red-500' : pct >= 80 ? 'bg-amber-500' : color
+  const barColor = pct >= 100 ? 'bg-danger' : pct >= 80 ? 'bg-warning' : color
   return (
-    <div className="w-full bg-slate-100 rounded-full h-2">
+    <div className="w-full bg-surface-2 rounded-full h-2">
       <div className={`${barColor} h-2 rounded-full transition-all`} style={{ width: `${pct}%` }} />
     </div>
   )
@@ -42,9 +44,9 @@ function ProgressBar({ value, max, color = 'bg-indigo-500' }: { value: number; m
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload?.length) {
     return (
-      <div className="bg-white border border-slate-100 rounded-xl shadow-lg px-3 py-2 text-sm">
-        <p className="font-medium text-slate-700">{payload[0].name}</p>
-        <p className="text-slate-500">{formatCurrency(payload[0].value)}</p>
+      <div className="bg-surface border border-border-subtle rounded-xl shadow-lg px-3 py-2 text-sm">
+        <p className="font-medium text-content">{payload[0].name}</p>
+        <p className="text-content-2">{formatCurrency(payload[0].value)}</p>
       </div>
     )
   }
@@ -57,6 +59,7 @@ export function DashboardPage({ month }: DashboardPageProps) {
   const { getBudget } = useBudget()
   const { investments } = useInvestments()
   const [period, setPeriod] = useState<Period>(6)
+  const chart = useChartTheme()
 
   const transactions = getByMonth(month)
   const budget = getBudget(month)
@@ -115,22 +118,22 @@ export function DashboardPage({ month }: DashboardPageProps) {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <h1 className="text-xl font-bold text-slate-800 mb-6 capitalize">{formatMonth(month)}</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-content mb-6 capitalize">{formatMonth(month)}</h1>
 
       {/* Summary cards */}
       <div className="flex gap-3 mb-6 flex-wrap">
-        <SummaryCard label="Saldo" value={formatCurrency(balance)} color={balance >= 0 ? 'text-emerald-600' : 'text-red-500'} />
-        <SummaryCard label="Receitas" value={formatCurrency(totalIncome)} color="text-emerald-600" />
+        <SummaryCard label="Saldo" value={formatCurrency(balance)} color={balance >= 0 ? 'text-success' : 'text-danger'} />
+        <SummaryCard label="Receitas" value={formatCurrency(totalIncome)} color="text-success" />
         <SummaryCard
           label="Gastos"
           value={formatCurrency(totalExpense)}
-          color="text-slate-800"
+          color="text-content"
           sub={budget.totalLimit > 0 ? `${budgetPct}% do orçamento (${formatCurrency(budget.totalLimit)})` : undefined}
         />
         <SummaryCard
           label="Investido"
           value={formatCurrency(investmentsCurrentValue)}
-          color="text-indigo-600"
+          color="text-accent"
           sub={investmentsAmountInvested > 0 ? `${investmentsGain >= 0 ? '+' : ''}${formatCurrency(investmentsGain)} (${investmentsGainPct >= 0 ? '+' : ''}${investmentsGainPct.toFixed(2)}%)` : undefined}
         />
       </div>
@@ -139,8 +142,8 @@ export function DashboardPage({ month }: DashboardPageProps) {
       {budget.totalLimit > 0 && (
         <Card className="mb-5">
           <div className="flex justify-between text-sm mb-2">
-            <span className="font-medium text-slate-700">Orçamento geral</span>
-            <span className="text-slate-500">{formatCurrency(totalExpense)} / {formatCurrency(budget.totalLimit)}</span>
+            <span className="font-medium text-content">Orçamento geral</span>
+            <span className="text-content-2">{formatCurrency(totalExpense)} / {formatCurrency(budget.totalLimit)}</span>
           </div>
           <ProgressBar value={totalExpense} max={budget.totalLimit} />
         </Card>
@@ -150,9 +153,9 @@ export function DashboardPage({ month }: DashboardPageProps) {
       <div className="grid md:grid-cols-2 gap-5 mb-5">
         {/* Donut chart */}
         <Card>
-          <p className="text-sm font-semibold text-slate-700 mb-4">Gastos por categoria</p>
+          <p className="text-sm font-semibold text-content mb-4">Gastos por categoria</p>
           {categoryData.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-10">Nenhum gasto registrado.</p>
+            <p className="text-sm text-content-3 text-center py-10">Nenhum gasto registrado.</p>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={200}>
@@ -167,7 +170,7 @@ export function DashboardPage({ month }: DashboardPageProps) {
               </ResponsiveContainer>
               <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2">
                 {categoryData.map((d, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-xs text-slate-600">
+                  <div key={i} className="flex items-center gap-1.5 text-xs text-content-2">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
                     {d.name}
                   </div>
@@ -180,20 +183,20 @@ export function DashboardPage({ month }: DashboardPageProps) {
         {/* Bar chart - history */}
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-semibold text-slate-700">Últimos {period} meses</p>
+            <p className="text-sm font-semibold text-content">Últimos {period} meses</p>
             <PeriodSelector value={period} onChange={setPeriod} />
           </div>
           <ResponsiveContainer width="100%" height={230}>
             <BarChart data={historyData} barSize={8}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${(v/1000).toFixed(0)}k`} width={45} />
-              <Tooltip formatter={(v) => formatCurrency(Number(v))} contentStyle={{ borderRadius: 12, border: '1px solid #f1f5f9', fontSize: 12 }} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: chart.tick }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: chart.tick }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${(v/1000).toFixed(0)}k`} width={45} />
+              <Tooltip formatter={(v) => formatCurrency(Number(v))} contentStyle={chart.tooltip} />
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="Receita" fill="#10b981" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Gasto" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Investido" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Planejado" fill="#e2b00a" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Receita" fill={chart.income} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Gasto" fill={chart.expense} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Investido" fill={chart.invested} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Planejado" fill={chart.planned} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -202,18 +205,18 @@ export function DashboardPage({ month }: DashboardPageProps) {
       {/* Category progress */}
       {catProgress.length > 0 && (
         <Card>
-          <p className="text-sm font-semibold text-slate-700 mb-4">Progresso por categoria</p>
+          <p className="text-sm font-semibold text-content mb-4">Progresso por categoria</p>
           <div className="flex flex-col gap-3">
             {catProgress.map(({ cat, spent, limit }) => (
               <div key={cat.id}>
-                <div className="flex justify-between text-xs text-slate-600 mb-1">
+                <div className="flex justify-between text-xs text-content-2 mb-1">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
+                    <CategoryIcon icon={cat.icon} color={cat.color} size="sm" />
                     {cat.name}
                   </div>
                   <span>
                     {formatCurrency(spent)}
-                    {limit > 0 && <span className="text-slate-400"> / {formatCurrency(limit)}</span>}
+                    {limit > 0 && <span className="text-content-3"> / {formatCurrency(limit)}</span>}
                   </span>
                 </div>
                 {limit > 0 && <ProgressBar value={spent} max={limit} />}

@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 import type { Category, CategoryType } from '../../types'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Button } from '../ui/Button'
+import { CATEGORY_ICONS } from '../../lib/categoryIcons'
 
 const PRESET_COLORS = [
   '#f97316', '#3b82f6', '#8b5cf6', '#10b981', '#ec4899',
@@ -20,6 +22,7 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
   const [name, setName] = useState(initial?.name ?? '')
   const [type, setType] = useState<CategoryType>(initial?.type ?? 'expense')
   const [color, setColor] = useState(initial?.color ?? PRESET_COLORS[0])
+  const [icon, setIcon] = useState(initial?.icon ?? 'tag')
   const [excludeFromCharts, setExcludeFromCharts] = useState(initial?.excludeFromCharts ?? false)
   const [subcategories, setSubcategories] = useState<string[]>(initial?.subcategories ?? [])
   const [newSub, setNewSub] = useState('')
@@ -50,7 +53,7 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) { setError('Nome é obrigatório'); return }
-    onSubmit({ name: name.trim(), type, color, excludeFromCharts, subcategories })
+    onSubmit({ name: name.trim(), type, color, icon, excludeFromCharts, subcategories })
   }
 
   return (
@@ -74,16 +77,36 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
         <option value="both">Ambos</option>
       </Select>
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-slate-700">Cor</label>
+        <label className="text-sm font-medium text-content">Cor</label>
         <div className="flex gap-2 flex-wrap">
           {PRESET_COLORS.map(c => (
             <button
               key={c}
               type="button"
               onClick={() => setColor(c)}
-              className={`w-7 h-7 rounded-full transition cursor-pointer ${color === c ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}`}
+              className={`w-7 h-7 rounded-full transition cursor-pointer ${color === c ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : ''}`}
               style={{ backgroundColor: c }}
             />
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-content">Ícone</label>
+        <div className="flex gap-1.5 flex-wrap">
+          {Object.entries(CATEGORY_ICONS).map(([key, Icon]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setIcon(key)}
+              aria-label={key}
+              className={`flex items-center justify-center w-8 h-8 rounded-lg transition cursor-pointer ${
+                icon === key
+                  ? 'ring-2 ring-accent bg-accent-soft text-accent'
+                  : 'text-content-2 hover:bg-surface-2'
+              }`}
+            >
+              <Icon size={16} />
+            </button>
           ))}
         </div>
       </div>
@@ -92,14 +115,14 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
           type="checkbox"
           checked={excludeFromCharts}
           onChange={e => setExcludeFromCharts(e.target.checked)}
-          className="w-4 h-4 rounded accent-indigo-500"
+          className="w-4 h-4 rounded accent-primary"
         />
-        <span className="text-sm text-slate-600">Ocultar dos gráficos de gastos</span>
+        <span className="text-sm text-content-2">Ocultar dos gráficos de gastos</span>
       </label>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-slate-700">
-          Subcategorias <span className="text-slate-400 font-normal">(opcional)</span>
+        <label className="text-sm font-medium text-content">
+          Subcategorias <span className="text-content-3 font-normal">(opcional)</span>
         </label>
         <div className="flex gap-2">
           <input
@@ -108,7 +131,7 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
             onChange={e => setNewSub(e.target.value)}
             onKeyDown={handleSubKeyDown}
             placeholder="Ex: Tech, Livros"
-            className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition"
+            className="flex-1 border border-border bg-surface text-content placeholder:text-content-3 rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition"
           />
           <Button type="button" variant="secondary" onClick={handleAddSubcategory}>
             Adicionar
@@ -119,22 +142,22 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
             {subcategories.map(sub => (
               <span
                 key={sub}
-                className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded-md"
+                className="inline-flex items-center gap-1 bg-surface-2 text-content text-xs px-2 py-1 rounded-md"
               >
                 {sub}
                 <button
                   type="button"
                   onClick={() => handleRemoveSubcategory(sub)}
-                  className="text-slate-400 hover:text-red-500 cursor-pointer transition"
+                  className="text-content-3 hover:text-danger cursor-pointer transition"
                   aria-label={`Remover ${sub}`}
                 >
-                  ×
+                  <X size={12} />
                 </button>
               </span>
             ))}
           </div>
         )}
-        <p className="text-xs text-slate-400">Enter para adicionar. Essas opções aparecerão na lista de desejos.</p>
+        <p className="text-xs text-content-3">Enter para adicionar. Essas opções aparecerão na lista de desejos.</p>
       </div>
 
       <div className="flex gap-2 justify-end pt-2">

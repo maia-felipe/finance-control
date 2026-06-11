@@ -1,4 +1,13 @@
+import { useState } from 'react'
+import {
+  LayoutDashboard, ArrowDownCircle, ArrowUpCircle, TrendingUp,
+  Target, Star, Tags, BarChart3, Menu, LogOut, Wallet,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { MonthSelector } from './MonthSelector'
+import { PlanBadge } from './PlanBadge'
+import { MoreSheet } from './MoreSheet'
+import { ThemeToggle } from '../ui/ThemeToggle'
 import { useAuth } from '../../contexts/AuthContext'
 
 type Tab = 'dashboard' | 'expenses' | 'income' | 'investments' | 'budget' | 'wishlist' | 'categories' | 'reports'
@@ -10,60 +19,84 @@ interface NavbarProps {
   onMonthChange: (month: string) => void
 }
 
-function LogoutIcon() {
+interface TabDef {
+  id: Tab
+  label: string
+  shortLabel: string
+  icon: LucideIcon
+}
+
+const tabs: TabDef[] = [
+  { id: 'dashboard', label: 'Dashboard', shortLabel: 'Resumo', icon: LayoutDashboard },
+  { id: 'expenses', label: 'Gastos', shortLabel: 'Gastos', icon: ArrowDownCircle },
+  { id: 'income', label: 'Receitas', shortLabel: 'Receitas', icon: ArrowUpCircle },
+  { id: 'investments', label: 'Investimentos', shortLabel: 'Investir', icon: TrendingUp },
+  { id: 'budget', label: 'Orçamento', shortLabel: 'Orçamento', icon: Target },
+  { id: 'wishlist', label: 'Desejos', shortLabel: 'Desejos', icon: Star },
+  { id: 'categories', label: 'Categorias', shortLabel: 'Categorias', icon: Tags },
+  { id: 'reports', label: 'Relatórios', shortLabel: 'Relatórios', icon: BarChart3 },
+]
+
+// Mobile: 4 abas principais na barra inferior; o resto vai para o sheet "Mais"
+const PRIMARY_TABS: Tab[] = ['dashboard', 'expenses', 'income', 'investments']
+const primaryTabs = tabs.filter(t => PRIMARY_TABS.includes(t.id))
+const secondaryTabs = tabs.filter(t => !PRIMARY_TABS.includes(t.id))
+
+function Logo() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" y1="12" x2="9" y2="12" />
-    </svg>
+    <span className="flex items-center gap-2">
+      <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-accent-soft text-accent">
+        <Wallet size={16} />
+      </span>
+      <span className="text-base md:text-lg font-bold text-content tracking-tight">FinanControl</span>
+    </span>
   )
 }
 
-const tabs: { id: Tab; label: string; emoji: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', emoji: '📊' },
-  { id: 'expenses', label: 'Gastos', emoji: '💸' },
-  { id: 'income', label: 'Receitas', emoji: '💰' },
-  { id: 'investments', label: 'Investimentos', emoji: '📈' },
-  { id: 'budget', label: 'Orçamento', emoji: '🎯' },
-  { id: 'wishlist', label: 'Desejos', emoji: '⭐' },
-  { id: 'categories', label: 'Categorias', emoji: '🏷️' },
-  { id: 'reports', label: 'Relatórios', emoji: '📈' },
-]
-
 export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarProps) {
   const { user, signOut } = useAuth()
+  const [moreOpen, setMoreOpen] = useState(false)
+
+  const activeSecondary = secondaryTabs.find(t => t.id === activeTab)
+  const MoreIcon = activeSecondary?.icon ?? Menu
+
   return (
     <>
       {/* Desktop navbar */}
-      <header className="hidden md:flex items-center justify-between bg-white border-b border-slate-100 px-6 py-3 sticky top-0 z-40">
+      <header className="hidden md:flex items-center justify-between bg-surface border-b border-border-subtle px-6 py-3 sticky top-0 z-40">
         <div className="flex items-center gap-1">
-          <span className="text-lg font-bold text-indigo-600 mr-4">💰 FinanControl</span>
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                activeTab === tab.id
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+          <span className="mr-4"><Logo /></span>
+          {tabs.map(tab => {
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onTabChange(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === tab.id
+                    ? 'bg-accent-soft text-accent'
+                    : 'text-content-2 hover:bg-surface-2'
+                }`}
+              >
+                <Icon size={15} />
+                {tab.label}
+              </button>
+            )
+          })}
         </div>
         <div className="flex items-center gap-3">
           <MonthSelector month={month} onChange={onMonthChange} />
+          <ThemeToggle />
           {user && (
-            <div className="flex items-center gap-2 pl-3 border-l border-slate-100">
-              <span className="text-xs text-slate-500 truncate max-w-45" title={user.email ?? ''}>{user.email}</span>
+            <div className="flex items-center gap-2 pl-3 border-l border-border-subtle">
+              <PlanBadge />
+              <span className="text-xs text-content-2 truncate max-w-45" title={user.email ?? ''}>{user.email}</span>
               <button
                 onClick={signOut}
                 title="Sair da conta"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-xs font-medium text-content-2 hover:border-danger/30 hover:text-danger hover:bg-danger-soft transition cursor-pointer"
               >
-                <LogoutIcon />
+                <LogOut size={14} />
                 Sair
               </button>
             </div>
@@ -72,38 +105,60 @@ export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarP
       </header>
 
       {/* Mobile header */}
-      <header className="md:hidden flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 sticky top-0 z-40">
-        <span className="text-base font-bold text-indigo-600">💰 FinanControl</span>
+      <header className="md:hidden flex items-center justify-between bg-surface border-b border-border-subtle px-4 py-3 sticky top-0 z-40">
+        <Logo />
         <div className="flex items-center gap-2">
+          <PlanBadge />
           <MonthSelector month={month} onChange={onMonthChange} />
+          <ThemeToggle />
           {user && (
             <button
               onClick={signOut}
               title="Sair da conta"
               aria-label="Sair"
-              className="flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:border-red-200 hover:text-red-500 hover:bg-red-50 transition cursor-pointer"
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-border text-content-2 hover:border-danger/30 hover:text-danger hover:bg-danger-soft transition cursor-pointer"
             >
-              <LogoutIcon />
+              <LogOut size={15} />
             </button>
           )}
         </div>
       </header>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 z-40 flex">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            className={`flex-1 py-2 text-xs font-medium transition cursor-pointer ${
-              activeTab === tab.id ? 'text-indigo-600' : 'text-slate-500'
-            }`}
-          >
-            <div>{tab.emoji}</div>
-            <div>{tab.label}</div>
-          </button>
-        ))}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border-subtle z-40 flex pb-[env(safe-area-inset-bottom)]">
+        {primaryTabs.map(tab => {
+          const Icon = tab.icon
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onTabChange(tab.id)}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-2 min-h-12 text-[11px] font-medium transition cursor-pointer ${
+                activeTab === tab.id ? 'text-accent' : 'text-content-2'
+              }`}
+            >
+              <Icon size={20} />
+              {tab.shortLabel}
+            </button>
+          )
+        })}
+        <button
+          onClick={() => setMoreOpen(true)}
+          className={`flex-1 flex flex-col items-center gap-0.5 py-2 min-h-12 text-[11px] font-medium transition cursor-pointer ${
+            activeSecondary ? 'text-accent' : 'text-content-2'
+          }`}
+        >
+          <MoreIcon size={20} />
+          {activeSecondary?.shortLabel ?? 'Mais'}
+        </button>
       </nav>
+
+      <MoreSheet
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        items={secondaryTabs}
+        activeTab={activeTab}
+        onSelect={onTabChange}
+      />
     </>
   )
 }

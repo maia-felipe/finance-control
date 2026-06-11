@@ -14,7 +14,7 @@ export default defineConfig({
         name: 'FinanControl',
         short_name: 'FinanControl',
         description: 'Controle financeiro pessoal',
-        theme_color: '#6366f1',
+        theme_color: '#4f46e5',
         background_color: '#f8fafc',
         display: 'standalone',
         orientation: 'portrait',

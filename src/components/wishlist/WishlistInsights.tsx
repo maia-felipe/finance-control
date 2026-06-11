@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { format, subMonths } from 'date-fns'
+import { Lightbulb, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import type { WishlistItem, Transaction } from '../../types'
 import { useBudget } from '../../hooks/useBudget'
 import { formatCurrency } from '../../utils/formatCurrency'
@@ -60,9 +61,9 @@ function calcInstallmentsThisMonth(transactions: Transaction[]): { total: number
 function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="flex-1 min-w-36">
-      <p className="text-xs text-slate-500 mb-1">{label}</p>
-      <p className="text-lg font-bold text-slate-800">{value}</p>
-      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
+      <p className="text-xs text-content-2 mb-1">{label}</p>
+      <p className="text-lg font-bold text-content">{value}</p>
+      {sub && <p className="text-xs text-content-3 mt-0.5">{sub}</p>}
     </div>
   )
 }
@@ -143,23 +144,25 @@ export function WishlistInsights({ items, transactions, availableBalance }: Wish
   }, [items, availableBalance])
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 mb-6 overflow-hidden">
+    <div className="bg-surface rounded-2xl border border-border-subtle mb-6 overflow-hidden">
       <button
         type="button"
         onClick={toggleCollapsed}
-        className="w-full flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-slate-50 transition"
+        className="w-full flex items-center justify-between px-5 py-3 cursor-pointer hover:bg-surface-2 transition"
         aria-expanded={!collapsed}
       >
-        <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-          💡 Insights
+        <span className="text-sm font-semibold text-content flex items-center gap-2">
+          <Lightbulb size={15} className="text-warning" /> Insights
         </span>
-        <span className="text-xs text-slate-400">{collapsed ? '▼ Expandir' : '▲ Colapsar'}</span>
+        <span className="text-xs text-content-3 flex items-center gap-1">
+          {collapsed ? <><ChevronDown size={13} /> Expandir</> : <><ChevronUp size={13} /> Colapsar</>}
+        </span>
       </button>
 
       {!collapsed && (
         <div className="px-5 pb-5 pt-1 flex flex-col gap-4">
           {/* Linha 1: estado da wishlist */}
-          <div className="flex flex-wrap gap-4 border-b border-slate-50 pb-4">
+          <div className="flex flex-wrap gap-4 border-b border-border-subtle pb-4">
             <Metric
               label="Total desejado"
               value={formatCurrency(totalDesired)}
@@ -205,15 +208,15 @@ export function WishlistInsights({ items, transactions, availableBalance }: Wish
 
           {/* O que cabe esse mês */}
           {availableBalance > 0 && desiredCount > 0 && (
-            <div className="border-t border-slate-50 pt-4">
-              <p className="text-xs font-semibold text-slate-600 mb-2">
-                💡 O que cabe esse mês
-                <span className="font-normal text-slate-400 ml-1">
+            <div className="border-t border-border-subtle pt-4">
+              <p className="text-xs font-semibold text-content-2 mb-2">
+                O que cabe esse mês
+                <span className="font-normal text-content-3 ml-1">
                   (saldo disponível: {formatCurrency(availableBalance)})
                 </span>
               </p>
               {fitsThisMonth.fitting.length === 0 ? (
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-content-3">
                   Nenhum item cabe no saldo disponível deste mês.
                 </p>
               ) : (
@@ -224,23 +227,23 @@ export function WishlistInsights({ items, transactions, availableBalance }: Wish
                     return (
                       <div key={item.id} className="flex items-center justify-between gap-2 text-xs">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-emerald-500 shrink-0">✓</span>
-                          <span className="text-slate-700 truncate">{item.name}</span>
+                          <span className="text-success shrink-0"><Check size={12} /></span>
+                          <span className="text-content truncate">{item.name}</span>
                           {n > 1 && (
-                            <span className="text-indigo-400 shrink-0 bg-indigo-50 px-1 rounded">
+                            <span className="text-accent shrink-0 bg-accent-soft px-1 rounded">
                               {n}×
                             </span>
                           )}
                         </div>
-                        <span className="text-slate-500 shrink-0 font-medium">
+                        <span className="text-content-2 shrink-0 font-medium">
                           {n > 1 ? `${formatCurrency(monthly)}/mês` : formatCurrency(item.price)}
                         </span>
                       </div>
                     )
                   })}
-                  <div className="flex justify-between text-xs text-slate-400 pt-1 border-t border-slate-50 mt-0.5">
+                  <div className="flex justify-between text-xs text-content-3 pt-1 border-t border-border-subtle mt-0.5">
                     <span>Total sugerido</span>
-                    <span className="font-medium text-slate-600">
+                    <span className="font-medium text-content-2">
                       {formatCurrency(fitsThisMonth.totalFit)} / {formatCurrency(availableBalance)}
                     </span>
                   </div>
