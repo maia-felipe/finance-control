@@ -34,6 +34,7 @@ export function useCategories() {
     supabase
       .from('categories')
       .select('*')
+      .eq('user_id', userId)
       .order('sort_order', { ascending: true })
       .then(async ({ data }) => {
         if (data && data.length > 0) {

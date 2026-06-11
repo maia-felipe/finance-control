@@ -20,6 +20,7 @@ export function useTransactions() {
     supabase
       .from('transactions')
       .select('*')
+      .eq('user_id', userId)
       .order('date', { ascending: false })
       .then(({ data }) => {
         if (data) setTransactions(data.map(row => ({

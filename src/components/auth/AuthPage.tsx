@@ -4,9 +4,11 @@ import { Card } from '../ui/Card'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
 
+type AuthMode = 'login' | 'signup' | 'reset'
+
 export function AuthPage() {
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth()
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, resetPassword } = useAuth()
+  const [mode, setMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -18,6 +20,13 @@ export function AuthPage() {
     setError('')
     setInfo('')
     setSubmitting(true)
+    if (mode === 'reset') {
+      const { error: err } = await resetPassword(email)
+      setSubmitting(false)
+      if (err) setError(err)
+      else setInfo('Enviamos um link de redefinição para seu email.')
+      return
+    }
     const fn = mode === 'login' ? signInWithEmail : signUpWithEmail
     const { error: err } = await fn(email, password)
     setSubmitting(false)
@@ -31,8 +40,8 @@ export function AuthPage() {
     if (err) setError(err)
   }
 
-  const toggleMode = () => {
-    setMode(mode === 'login' ? 'signup' : 'login')
+  const switchMode = (next: AuthMode) => {
+    setMode(next)
     setError('')
     setInfo('')
   }
@@ -43,7 +52,7 @@ export function AuthPage() {
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-indigo-600">💰 FinanControl</h1>
           <p className="text-sm text-slate-500 mt-1">
-            {mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}
+            {mode === 'login' ? 'Entre na sua conta' : mode === 'signup' ? 'Crie sua conta' : 'Redefina sua senha'}
           </p>
         </div>
 
@@ -57,21 +66,33 @@ export function AuthPage() {
               autoFocus
               required
             />
-            <Input
-              label="Senha"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              minLength={6}
-              required
-            />
+            {mode !== 'reset' && (
+              <Input
+                label="Senha"
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                minLength={6}
+                required
+              />
+            )}
             {error && <p className="text-sm text-red-500">{error}</p>}
             {info && <p className="text-sm text-emerald-600">{info}</p>}
             <Button type="submit" disabled={submitting}>
-              {submitting ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Cadastrar'}
+              {submitting ? 'Aguarde...' : mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Cadastrar' : 'Enviar link de redefinição'}
             </Button>
+            {mode === 'login' && (
+              <button
+                type="button"
+                onClick={() => switchMode('reset')}
+                className="text-sm text-slate-500 hover:text-indigo-600 hover:underline cursor-pointer self-center"
+              >
+                Esqueci minha senha
+              </button>
+            )}
           </form>
 
+          {mode !== 'reset' && (<>
           <div className="flex items-center gap-3 my-4">
             <div className="flex-1 h-px bg-slate-200" />
             <span className="text-xs text-slate-400">ou</span>
@@ -91,13 +112,14 @@ export function AuthPage() {
             </svg>
             Continuar com Google
           </button>
+          </>)}
         </Card>
 
         <p className="text-center text-sm text-slate-500 mt-4">
-          {mode === 'login' ? 'Não tem conta? ' : 'Já tem conta? '}
+          {mode === 'login' ? 'Não tem conta? ' : mode === 'signup' ? 'Já tem conta? ' : 'Lembrou a senha? '}
           <button
             type="button"
-            onClick={toggleMode}
+            onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
             className="text-indigo-600 font-medium hover:underline cursor-pointer"
           >
             {mode === 'login' ? 'Cadastre-se' : 'Faça login'}

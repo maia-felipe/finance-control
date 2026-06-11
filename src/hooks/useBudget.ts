@@ -19,6 +19,7 @@ export function useBudget() {
     supabase
       .from('budgets')
       .select('*')
+      .eq('user_id', userId)
       .then(({ data }) => {
         if (data) setBudgets(data.map(row => ({
           month: row.month,

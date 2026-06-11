@@ -38,6 +38,7 @@ export function useWishlist() {
     supabase
       .from('wishlist_items')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
         if (data) setItems(data.map(rowToItem))

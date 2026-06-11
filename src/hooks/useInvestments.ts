@@ -21,6 +21,7 @@ export function useInvestments() {
     supabase
       .from('investments')
       .select('*')
+      .eq('user_id', userId)
       .then(({ data }) => {
         if (data) setInvestments(data.map(row => ({
           id: row.id, name: row.name, category: row.category,

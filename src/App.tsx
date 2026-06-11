@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { AuthPage } from './components/auth/AuthPage'
+import { UpdatePasswordPage } from './components/auth/UpdatePasswordPage'
 import { Navbar } from './components/layout/Navbar'
 import type { Tab } from './components/layout/Navbar'
 import { DashboardPage } from './components/dashboard/DashboardPage'
@@ -13,7 +14,7 @@ import { WishlistPage } from './components/wishlist/WishlistPage'
 import { currentMonth } from './utils/formatDate'
 
 function AppContent() {
-  const { user, loading } = useAuth()
+  const { user, loading, passwordRecovery } = useAuth()
   const [tab, setTab] = useState<Tab>('dashboard')
   const [month, setMonth] = useState(currentMonth())
 
@@ -27,6 +28,8 @@ function AppContent() {
       </div>
     )
   }
+
+  if (passwordRecovery) return <UpdatePasswordPage />
 
   if (!user) return <AuthPage />
 
