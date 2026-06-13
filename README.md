@@ -1,73 +1,82 @@
-# React + TypeScript + Vite
+# Finance Control
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personal finance manager for tracking income, expenses, budgets, investments and a
+purchase wishlist — with AI-generated monthly insights. Built as a full-stack project on
+React + Supabase, with a Brazilian Portuguese (PT-BR) interface.
 
-Currently, two official plugins are available:
+> **Live demo:** <!-- TODO: paste deployed URL here -->
+>
+> The UI is in Portuguese (R$, PT-BR labels). AI insights are restricted to the
+> administrator since they call a paid LLM API.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+![Dashboard](docs/dashboard.png)
+![Reports](docs/reports.png)
+![Budget](docs/budget.png)
+![Wishlist](docs/wishlist.png)
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Transactions** — income and expense tracking with categories, recurring entries, and
+  CSV / OFX import (parse a bank statement straight into the app).
+- **Budgets** — monthly total and per-category limits, tracked against actual spending.
+- **Categories** — custom categories with icons, drag-and-drop ordering, and chart opt-out.
+- **Investments** — contributions and withdrawals (resgates) tracked per asset.
+- **Wishlist** — planned purchases with priority, installment planning, and affordability hints.
+- **Reports** — charts and breakdowns of spending over time (Recharts).
+- **AI insights** — Claude-generated monthly summaries and wishlist advice, with caching and
+  per-month generation caps to control cost (admin-only).
+- **Auth** — email/password sign-up, login, and password recovery (Supabase Auth).
+- **PWA** — installable, offline-capable shell.
+- **Light / dark theme** — system-aware with a manual toggle.
 
-## Expanding the ESLint configuration
+## Tech stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+| Layer        | Tech                                                                 |
+| ------------ | -------------------------------------------------------------------- |
+| Frontend     | React 19, Vite, TypeScript, Tailwind CSS v4                          |
+| UI / charts  | Recharts, @dnd-kit (drag-and-drop), lucide-react, date-fns           |
+| Backend      | Supabase (Postgres, Row-Level Security, Auth, Edge Functions / Deno) |
+| AI           | Anthropic Claude API (via a Supabase Edge Function)                  |
+| Payments     | Stripe Checkout + webhook (subscription plumbing — see note below)   |
+| Tooling      | ESLint, TypeScript, PWA (vite-plugin-pwa)                            |
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Architecture
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- **Data flow:** all persistence runs through hooks in [src/hooks/](src/hooks/). Each hook
+  fetches from Supabase on mount, holds data in local React state, and applies mutations
+  optimistically (local update first, Supabase call in the background). Supabase uses
+  `snake_case`; the TypeScript domain types use `camelCase`, mapped explicitly in each hook.
+- **Edge Functions** ([supabase/functions/](supabase/functions/)) keep secrets server-side:
+  `ai-insights` calls the Anthropic API (the API key never reaches the client), and the
+  Stripe functions handle checkout + webhooks.
+- **Auth & RLS:** every table is scoped to the authenticated user via Row-Level Security
+  policies ([supabase/policies.sql](supabase/policies.sql)).
+- **Domain types** live in [src/types/index.ts](src/types/index.ts); navigation/state is owned
+  by [src/App.tsx](src/App.tsx).
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+> **Note on payments / premium:** this project is a personal + portfolio app, not a paid
+> product. The Stripe and subscription code remains in the repo as a reference integration,
+> but no UI triggers it: new users are created on the `free` plan (no trial) and AI insights
+> are restricted to the `admin` role, because each AI call costs real money.
+
+## Running locally
+
+Requires Node and a Supabase project.
+
+```bash
+npm install
+npm run dev      # dev server at http://localhost:5173
+npm run build    # type-check + production build
+npm run lint     # ESLint
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Create a `.env.local` (or `.env`) in the project root:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+VITE_SUPABASE_URL=your-project-url
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+Then apply the SQL in [supabase/](supabase/) (policies, profiles, etc.) via the Supabase SQL
+editor, and deploy the Edge Functions in [supabase/functions/](supabase/functions/). The
+`ai-insights` function needs an `ANTHROPIC_API_KEY` secret.

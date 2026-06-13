@@ -3,21 +3,20 @@
 -- ============================================================================
 -- Rodar manualmente no SQL Editor do Supabase (depois de policies.sql).
 --
--- Semântica do plano efetivo (o app calcula em src/hooks/useProfile.ts):
---   role admin/tester  → ignora limites (carta branca)
---   plan premium       → acesso total (assinatura Stripe ativa)
---   plan trial         → acesso total enquanto trial_ends_at > now()
---   plan free / trial expirado → sem recursos premium (IA)
+-- Semântica do acesso à IA (o app calcula em src/hooks/useProfile.ts):
+--   role admin/tester  → único acesso aos recursos de IA (custam dinheiro real)
+--   qualquer outro     → sem IA. Trial e assinatura premium foram desativados:
+--                        este é um projeto pessoal/portfólio, não um SaaS pago.
 --
--- O webhook do Stripe (supabase/functions/stripe-webhook) atualiza plan,
--- stripe_customer_id e stripe_subscription_id via service role.
+-- As colunas/funções do Stripe seguem no repo como referência de integração,
+-- mas nenhuma UI as aciona e novos usuários nascem 'free' (sem trial).
 -- ============================================================================
 
 create table if not exists public.profiles (
   user_id uuid primary key references auth.users (id) on delete cascade,
-  plan text not null default 'trial' check (plan in ('trial', 'free', 'premium')),
+  plan text not null default 'free' check (plan in ('trial', 'free', 'premium')),
   role text not null default 'user' check (role in ('user', 'tester', 'admin')),
-  trial_ends_at timestamptz not null default now() + interval '14 days',
+  trial_ends_at timestamptz not null default now(),
   stripe_customer_id text,
   stripe_subscription_id text,
   created_at timestamptz not null default now()
@@ -30,7 +29,7 @@ alter table public.profiles enable row level security;
 create policy "select own profile" on public.profiles
   for select using (auth.uid() = user_id);
 
--- Trigger: cria o perfil (trial de 14 dias) no signup
+-- Trigger: cria o perfil (plano free, sem trial) no signup
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql

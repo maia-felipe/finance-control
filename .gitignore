@@ -28,8 +28,14 @@ dist-ssr
 *.sln
 *.sw?
 
+# Claude Code MCP config (local dev tooling, not part of the app)
+.mcp.json
+
 # Local Backups
 backup/
 
 #temp
 .temp/
+
+#playwright
+.playwright-mcp/
