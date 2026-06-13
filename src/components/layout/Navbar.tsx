@@ -62,16 +62,16 @@ export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarP
   return (
     <>
       {/* Desktop navbar */}
-      <header className="hidden md:flex items-center justify-between bg-surface border-b border-border-subtle px-6 py-3 sticky top-0 z-40">
-        <div className="flex items-center gap-1">
-          <span className="mr-4"><Logo /></span>
+      <header className="hidden md:flex items-center justify-between gap-4 bg-surface border-b border-border-subtle px-6 py-3 sticky top-0 z-40">
+        <div className="flex items-center gap-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <span className="mr-4 flex-shrink-0"><Logo /></span>
           {tabs.map(tab => {
             const Icon = tab.icon
             return (
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition cursor-pointer flex-shrink-0 ${
                   activeTab === tab.id
                     ? 'bg-accent-soft text-accent'
                     : 'text-content-2 hover:bg-surface-2'
@@ -83,7 +83,7 @@ export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarP
             )
           })}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <MonthSelector month={month} onChange={onMonthChange} />
           <ThemeToggle />
           {user && (
