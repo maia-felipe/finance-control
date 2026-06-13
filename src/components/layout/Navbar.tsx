@@ -5,7 +5,6 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { MonthSelector } from './MonthSelector'
-import { PlanBadge } from './PlanBadge'
 import { MoreSheet } from './MoreSheet'
 import { ThemeToggle } from '../ui/ThemeToggle'
 import { useAuth } from '../../contexts/AuthContext'
@@ -89,7 +88,6 @@ export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarP
           <ThemeToggle />
           {user && (
             <div className="flex items-center gap-2 pl-3 border-l border-border-subtle">
-              <PlanBadge />
               <span className="text-xs text-content-2 truncate max-w-45" title={user.email ?? ''}>{user.email}</span>
               <button
                 onClick={signOut}
@@ -108,7 +106,6 @@ export function Navbar({ activeTab, onTabChange, month, onMonthChange }: NavbarP
       <header className="md:hidden flex items-center justify-between bg-surface border-b border-border-subtle px-4 py-3 sticky top-0 z-40">
         <Logo />
         <div className="flex items-center gap-2">
-          <PlanBadge />
           <MonthSelector month={month} onChange={onMonthChange} />
           <ThemeToggle />
           {user && (

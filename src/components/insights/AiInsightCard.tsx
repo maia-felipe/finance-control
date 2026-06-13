@@ -13,9 +13,10 @@ interface AiInsightCardProps {
 }
 
 // Card de análise com IA (Claude via Edge Function ai-insights).
-// Recurso premium: para free/trial expirado mostra o convite de assinatura.
+// Restrito a admin/tester (a IA custa dinheiro real) — para os demais o card
+// simplesmente não aparece. O gate definitivo vive no backend.
 export function AiInsightCard({ type, month, title }: AiInsightCardProps) {
-  const { profile, loading: profileLoading, isPremium, startCheckout } = useProfile()
+  const { loading: profileLoading, canUseAi } = useProfile()
   // Conteúdo fica atrelado ao par tipo+mês: trocar de mês descarta a análise antiga
   const [result, setResult] = useState<{ key: string; content: string } | null>(null)
   const [generating, setGenerating] = useState(false)
@@ -23,7 +24,7 @@ export function AiInsightCard({ type, month, title }: AiInsightCardProps) {
   const key = `${type}|${month}`
   const content = result?.key === key ? result.content : ''
 
-  if (profileLoading) return null
+  if (profileLoading || !canUseAi) return null
 
   const generate = async () => {
     setGenerating(true)
@@ -39,7 +40,7 @@ export function AiInsightCard({ type, month, title }: AiInsightCardProps) {
         try {
           const body = await (error as unknown as { context: Response }).context.json()
           console.error('aiInsight:', body)
-          if (body?.error === 'premium_required') message = 'Recurso disponível apenas para assinantes Premium.'
+          if (body?.error === 'premium_required') message = 'Análises com IA estão restritas ao administrador.'
           else if (body?.message) message = body.message
         } catch {
           console.error('aiInsight:', error)
@@ -59,23 +60,12 @@ export function AiInsightCard({ type, month, title }: AiInsightCardProps) {
         <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content">
           <Sparkles size={15} className="text-accent" /> {title}
         </h2>
-        {isPremium && (
-          <Button size="sm" variant="secondary" onClick={generate} disabled={generating}>
-            {generating ? 'Analisando...' : content ? 'Atualizar' : 'Gerar análise'}
-          </Button>
-        )}
+        <Button size="sm" variant="secondary" onClick={generate} disabled={generating}>
+          {generating ? 'Analisando...' : content ? 'Atualizar' : 'Gerar análise'}
+        </Button>
       </div>
 
-      {!isPremium ? (
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <p className="text-sm text-content-2 flex-1">
-            {profile?.plan === 'trial'
-              ? 'Seu período de teste terminou. Assine o Premium para continuar usando as análises com IA.'
-              : 'Análises personalizadas com IA são um recurso do plano Premium.'}
-          </p>
-          <Button size="sm" onClick={startCheckout}>Assinar Premium</Button>
-        </div>
-      ) : content ? (
+      {content ? (
         <p className="text-sm text-content-2 whitespace-pre-wrap">{content}</p>
       ) : (
         <p className="text-sm text-content-3">

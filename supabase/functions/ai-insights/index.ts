@@ -12,7 +12,8 @@
 // Controles de custo:
 //   - cache por (user, month, type) com hash dos dados — só regenera se mudou
 //   - teto de MAX_GENERATIONS_PER_MONTH gerações por usuário/mês
-//   - gate de plano: premium / trial ativo / admin / tester
+//   - gate de acesso: apenas admin / tester. A IA custa dinheiro real, então
+//     trial/premium foram desativados — só o dono do app (admin) pode gerar.
 
 import Anthropic from 'npm:@anthropic-ai/sdk'
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -39,11 +40,9 @@ async function sha256(text: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-function isPremium(profile: { plan: string; role: string; trial_ends_at: string } | null): boolean {
+function canUseAi(profile: { role: string } | null): boolean {
   if (!profile) return false
-  if (profile.role === 'admin' || profile.role === 'tester') return true
-  if (profile.plan === 'premium') return true
-  return profile.plan === 'trial' && new Date(profile.trial_ends_at) > new Date()
+  return profile.role === 'admin' || profile.role === 'tester'
 }
 
 function prevMonth(month: string): string {
@@ -75,13 +74,13 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // --- Gate de plano ------------------------------------------------------
+    // --- Gate de acesso (admin/tester apenas) -------------------------------
     const { data: profile } = await admin
       .from('profiles')
-      .select('plan, role, trial_ends_at')
+      .select('role')
       .eq('user_id', user.id)
       .maybeSingle()
-    if (!isPremium(profile)) {
+    if (!canUseAi(profile)) {
       return json({ error: 'premium_required' }, 403)
     }
 
