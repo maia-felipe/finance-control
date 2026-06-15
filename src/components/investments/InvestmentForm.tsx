@@ -5,13 +5,14 @@ import { Select } from '../ui/Select'
 import { Button } from '../ui/Button'
 import { todayISO } from '../../utils/formatDate'
 
-const CATEGORIES: InvestmentCategory[] = ['Renda Fixa', 'Ações', 'FII', 'Cripto', 'Outro']
+const CATEGORIES: InvestmentCategory[] = ['Renda Fixa', 'Ações', 'FII', 'Cripto', 'Câmbio', 'Outro']
 
 const CATEGORY_COLORS: Record<InvestmentCategory, string> = {
   'Renda Fixa': '#3b82f6',
   'Ações': '#8b5cf6',
   'FII': '#f97316',
   'Cripto': '#f59e0b',
+  'Câmbio': '#10b981',
   'Outro': '#6b7280',
 }
 
@@ -28,6 +29,7 @@ export function InvestmentForm({ initial, onSubmit, onCancel }: InvestmentFormPr
   const [category, setCategory] = useState<InvestmentCategory>(initial?.category ?? 'Renda Fixa')
   const [amountInvested, setAmountInvested] = useState(initial?.amountInvested?.toFixed(2) ?? '')
   const [currentValue, setCurrentValue] = useState(initial?.currentValue?.toFixed(2) ?? '')
+  const [quantity, setQuantity] = useState(initial?.quantity?.toString() ?? '')
   const [startDate, setStartDate] = useState(initial?.startDate ?? todayISO())
   const [color, setColor] = useState(initial?.color ?? CATEGORY_COLORS['Renda Fixa'])
   const [notes, setNotes] = useState(initial?.notes ?? '')
@@ -43,6 +45,7 @@ export function InvestmentForm({ initial, onSubmit, onCancel }: InvestmentFormPr
     if (!name.trim()) e.name = 'Nome é obrigatório'
     if (!amountInvested || Number(amountInvested) <= 0) e.amountInvested = 'Valor inválido'
     if (!currentValue || Number(currentValue) < 0) e.currentValue = 'Valor inválido'
+    if (category === 'Câmbio' && (!quantity || Number(quantity) <= 0)) e.quantity = 'Quantidade inválida'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -58,6 +61,7 @@ export function InvestmentForm({ initial, onSubmit, onCancel }: InvestmentFormPr
       startDate,
       color,
       notes: notes.trim(),
+      quantity: category === 'Câmbio' ? parseFloat(quantity) : undefined,
     })
   }
 
@@ -102,6 +106,19 @@ export function InvestmentForm({ initial, onSubmit, onCancel }: InvestmentFormPr
           error={errors.currentValue}
         />
       </div>
+
+      {category === 'Câmbio' && (
+        <Input
+          label="Quantidade (ex: US$)"
+          type="number"
+          min="0"
+          step="any"
+          placeholder="0"
+          value={quantity}
+          onChange={e => { setQuantity(e.target.value); setErrors(p => ({ ...p, quantity: '' })) }}
+          error={errors.quantity}
+        />
+      )}
 
       <Input
         label="Data de início"

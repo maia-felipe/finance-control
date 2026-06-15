@@ -32,6 +32,7 @@ export function useInvestments() {
           amountInvested: row.amount_invested, currentValue: row.current_value,
           startDate: row.start_date, lastUpdated: row.last_updated,
           color: row.color, notes: row.notes,
+          quantity: row.quantity ?? undefined,
         })))
         else setInvestments([])
         setLoading(false)
@@ -51,6 +52,7 @@ export function useInvestments() {
       amount_invested: newInv.amountInvested, current_value: newInv.currentValue,
       start_date: newInv.startDate, last_updated: newInv.lastUpdated,
       color: newInv.color, notes: newInv.notes,
+      quantity: newInv.quantity ?? null,
     }), reload)
     return newInv.id
   }
@@ -66,6 +68,7 @@ export function useInvestments() {
     if (data.startDate !== undefined) patch.start_date = data.startDate
     if (data.color !== undefined) patch.color = data.color
     if (data.notes !== undefined) patch.notes = data.notes
+    if (data.quantity !== undefined) patch.quantity = data.quantity
     persist('Não foi possível atualizar o investimento.',
       supabase.from('investments').update(patch).eq('id', id), reload)
   }

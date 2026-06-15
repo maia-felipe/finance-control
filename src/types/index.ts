@@ -42,7 +42,7 @@ export interface Budget {
   categoryLimits: Record<string, number>
 }
 
-export type InvestmentCategory = 'Renda Fixa' | 'Ações' | 'FII' | 'Cripto' | 'Outro'
+export type InvestmentCategory = 'Renda Fixa' | 'Ações' | 'FII' | 'Cripto' | 'Câmbio' | 'Outro'
 
 export interface Investment {
   id: string
@@ -54,6 +54,8 @@ export interface Investment {
   lastUpdated: string
   color: string
   notes: string
+  /** Para investimentos de Câmbio: quantidade de moeda/unidades mantidas. */
+  quantity?: number
 }
 
 export interface MonthSummary {
