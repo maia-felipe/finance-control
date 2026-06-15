@@ -10,7 +10,7 @@ import { Modal } from '../ui/Modal'
 import { Badge } from '../ui/Badge'
 import { InvestmentForm } from './InvestmentForm'
 import { TransactionForm } from '../transactions/TransactionForm'
-import { formatCurrency } from '../../utils/formatCurrency'
+import { formatCurrency, formatUnitPrice } from '../../utils/formatCurrency'
 import { formatDate, formatMonth, monthFromDate, todayISO } from '../../utils/formatDate'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -415,6 +415,23 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                     </div>
                   </div>
 
+                  {inv.category === 'Câmbio' && inv.quantity && inv.quantity > 0 && (
+                    <div className="mt-2 grid grid-cols-3 gap-3 text-sm border-t border-border pt-2">
+                      <div>
+                        <p className="text-xs text-content-3 mb-0.5">Quantidade</p>
+                        <p className="font-medium text-content">{inv.quantity}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-content-3 mb-0.5">Preço de compra</p>
+                        <p className="font-medium text-content">{formatUnitPrice(inv.amountInvested / inv.quantity)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-content-3 mb-0.5">Preço atual</p>
+                        <p className="font-medium text-content">{formatUnitPrice(inv.currentValue / inv.quantity)}</p>
+                      </div>
+                    </div>
+                  )}
+
                   <GainBar invested={inv.amountInvested} current={inv.currentValue} />
 
                   {inv.notes && (
@@ -488,6 +505,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                       <span className={`text-sm font-semibold ${isResgate ? 'text-danger' : 'text-accent'}`}>
                         {isResgate ? '− ' : ''}{formatCurrency(t.amount)}
                       </span>
+                      <span className={`text-sm font-semibold ${isResgate ? 'text-danger' : 'text-accent'}`}>{isResgate ? '− ' : ''}{formatCurrency(t.amount)}</span>
                       <div className="flex gap-1">
                         <Button size="sm" variant="ghost" onClick={() => setEditingTx(t)} title="Editar" aria-label="Editar"><Pencil size={14} /></Button>
                         <Button size="sm" variant="danger" onClick={() => handleDeleteAporteTx(t)} title="Excluir" aria-label="Excluir"><Trash2 size={14} /></Button>
