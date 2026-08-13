@@ -6,7 +6,16 @@
       "Bash(npx tsc *)",
       "Bash(npm run *)",
       "Bash(npm ls *)",
-      "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies['lucide-react']\\)\")"
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies['lucide-react']\\)\")",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_network_requests",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_close"
     ]
   }
 }
