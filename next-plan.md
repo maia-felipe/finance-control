@@ -9,18 +9,31 @@ The goal is to evolve into a multi-user platform, in this order:
 1. **Data security** (Phase 0) — a prerequisite for "more people to use the platform".
 2. **Product polish** (Phase 1) — reliability and quick-win features so the product feels solid *before* charging for it.
 3. **Payment system** (Phase 2) — monthly subscription with a 14-day free trial, a limited free plan, and "carte blanche" (unlimited) access for the owner and testers.
-4. **AI insights** (Phase 3) — in Wishlists and Reports; the natural premium differentiator.
+4. ~~**AI insights** (Phase 3)~~ — **removed** (2026-08-13).
 5. **UI redesign** (Phase 4) — a more elaborate visual, including dark mode (awaiting visual references from the user in a future conversation).
 
 This document is a **macro roadmap**, not a detailed implementation plan for all phases.
 
-**Status (2026-06-11):**
+**Status (2026-08-13):**
 
 - ✅ **Phase 0** — done (code + SQL executed).
 - ✅ **Phase 1** — done (1.1 error feedback/toasts, 1.2 recurring engine, 1.3 CSV/OFX import).
-- 🟡 **Phase 2 (Stripe)** — code complete (profiles SQL, Edge Functions, plan UI); pending manual setup — see `MANUAL_SETUP.md`.
-- 🟡 **Phase 3 (AI insights)** — code complete (ai_insights SQL, Claude Edge Function, gated UI in Reports/Wishlist); pending manual setup — see `MANUAL_SETUP.md`.
+- 💤 **Phase 2 (Stripe)** — code complete but **dormant**: the plan UI is no longer rendered and
+  nothing is gated. The Edge Functions and `profiles` table remain in the repo so it can be
+  revived; see the Stripe section of `MANUAL_SETUP.md`.
+- ❌ **Phase 3 (AI insights)** — **removed**. The feature never got enough design attention to
+  justify its cost and complexity, so the component, the `ai-insights` Edge Function, the
+  `ai_insights` table and the Anthropic key were all deleted. It was also the only thing Stripe
+  gated, which is why Phase 2 went dormant with it. Revisit from scratch if it ever comes back.
 - ⏳ **Phase 4 (UI redesign)** — awaiting visual references from the user.
+
+> **Direction note.** This is a personal/portfolio project, not a product. Treat the
+> multi-user/monetization framing below as historical context rather than a committed plan.
+
+**Superseded by the multi-currency + i18n + settings work (2026-08-13):** preferred-currency
+and language settings, per-transaction currencies with date-accurate FX conversion, a Settings
+page that absorbed the Categories tab, and English as the codebase's base language with pt-BR
+and es translations.
 
 ---
 
@@ -119,10 +132,10 @@ The `Transaction.recurring: boolean` field and the form checkbox already exist, 
 
 ### 1.3 CSV/OFX bank statement import
 
-Export already exists (`src/utils/exportCSV.ts`); import doesn't. Importing bank statements is typically the #1 retention feature in personal finance apps — and it feeds better data to the AI insights of Phase 3.
+Export already exists (`src/utils/exportCSV.ts`); import doesn't. Importing bank statements is typically the #1 retention feature in personal finance apps.
 
 - Start with CSV (and evaluate OFX, the standard Brazilian bank export format).
-- Needs: column mapping UI, duplicate detection, category assignment (reuse existing categories; this is also a future AI use case — auto-categorization).
+- Needs: column mapping UI, duplicate detection, category assignment (reuse existing categories).
 
 ---
 
@@ -138,30 +151,21 @@ Export already exists (`src/utils/exportCSV.ts`); import doesn't. Importing bank
 
 **Open for the next session:**
 
-- What exactly is limited in the free plan (number of transactions? categories? no complete reports?). Note: **AI insights (Phase 3) are the most natural premium differentiator** — they have real per-use cost, so gating them is both fair and easy to justify; consider making them the main paid feature instead of capping basic usage.
+- What exactly is limited in the free plan (number of transactions? categories? no complete reports?). Note that the feature this was originally going to gate — AI insights — no longer exists, so there is currently **nothing** worth charging for. Answer this before reviving Stripe at all.
 - Upgrade/downgrade and cancellation flow within the app.
 - Where/how to expose the "carte blanche" for yourself (probably your `user_id` marked as `role = 'admin'` manually).
 
 ---
 
-## Phase 3 — AI Insights (Wishlist + Reports)
+## Phase 3 — AI Insights *(removed 2026-08-13)*
 
-**Status:** Provider decision made, architecture to be refined in a separate session.
+Shipped, then deleted: `AiInsightCard`, the `ai-insights` Edge Function, the `ai_insights` cache
+table and the Anthropic key. The output was too generic to earn its cost and complexity.
 
-- **Provider:** Claude (Anthropic API) via Supabase Edge Function — the key lives in the backend, never in the client. (The Stripe webhook function from Phase 2 establishes the Edge Function pattern first.)
-- **Input data already exists and requires no new input** — transactions, budgets, wishlist items and installments are all in Supabase.
-
-**Candidate insights (pick/refine in the planning session):**
-
-- **Wishlist:** purchase-timing advice ("based on your average balance, buy X in August; buying now would break your budget by R$Y"), smarter than the current greedy fits-this-month algorithm in `WishlistInsights.tsx`.
-- **Reports:** monthly natural-language summary (top changes vs. previous month, spending anomalies, category drift).
-- **Later:** auto-categorization of imported bank statements (synergy with 1.3).
-
-**Architecture notes for the planning session:**
-
-- **Cache results** (e.g., an `ai_insights` table keyed by user + month + insight type) — recompute only when underlying data changes, to control API cost.
-- Gate behind plan check (`profiles.plan`) from Phase 2.
-- Define a monthly per-user generation cap as a cost backstop.
+If it ever returns, start from the product question rather than the plumbing — the previous
+attempt built a monthly-summary generator nobody had defined the value of first. Note that
+`WishlistInsights.tsx` remains and is **not** AI: it is a local heuristic over the last six months
+of balances.
 
 ---
 
