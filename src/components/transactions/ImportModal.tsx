@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import type { Category, Transaction } from '../../types'
+import { useTranslation } from 'react-i18next'
+import type { Category, Transaction, CurrencyCode } from '../../types'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import { Select } from '../ui/Select'
 import { toast } from '../../lib/toast'
 import { formatDate } from '../../utils/formatDate'
-import { formatCurrency } from '../../utils/formatCurrency'
+import { useMoney } from '../../hooks/useMoney'
+import { useSettings } from '../../contexts/SettingsContext'
+import { CurrencySelect } from '../ui/CurrencySelect'
 import {
   parseCsv, parseOfx, isOfx, guessCsvMapping, mapCsvRows,
 } from '../../utils/importParsers'
@@ -31,6 +34,11 @@ function dupKey(date: string, amount: number, description: string): string {
 }
 
 export function ImportModal({ open, onClose, categories, existingTransactions, onImport }: ImportModalProps) {
+  const { t } = useTranslation()
+  const money = useMoney()
+  const { preferredCurrency, trackCurrency } = useSettings()
+  // Um extrato bancário vem inteiro numa moeda só — escolhida uma vez, não por linha.
+  const [currency, setCurrency] = useState<CurrencyCode>(preferredCurrency)
   const [step, setStep] = useState<Step>('file')
   const [csvData, setCsvData] = useState<CsvData | null>(null)
   const [mapping, setMapping] = useState<CsvMapping>({ dateCol: 0, amountCol: 1, descCol: 2, dateFormat: 'dd/MM/yyyy', sign: 'auto' })
@@ -71,7 +79,7 @@ export function ImportModal({ open, onClose, categories, existingTransactions, o
     if (isOfx(text)) {
       const parsed = parseOfx(text)
       if (parsed.length === 0) {
-        toast.error('Nenhuma transação encontrada no arquivo OFX.')
+        toast.error(t('import.noOfxTransactions'))
         return
       }
       toPreview(parsed)
@@ -95,10 +103,10 @@ export function ImportModal({ open, onClose, categories, existingTransactions, o
     if (!csvData) return
     const { parsed, skipped } = mapCsvRows(csvData, mapping)
     if (parsed.length === 0) {
-      toast.error('Nenhuma linha válida com esse mapeamento — confira as colunas e o formato de data.')
+      toast.error(t('import.noValidRows'))
       return
     }
-    if (skipped > 0) toast.info(`${skipped} linha(s) ignorada(s) por data ou valor inválido.`)
+    if (skipped > 0) toast.info(t('import.skipped', { count: skipped }))
     toPreview(parsed)
   }
 
@@ -110,29 +118,29 @@ export function ImportModal({ open, onClose, categories, existingTransactions, o
     && (!hasIncomes || incomeCategoryId)
 
   const handleImport = () => {
+    trackCurrency(currency)
     onImport(included.map(r => ({
       date: r.date,
       amount: r.amount,
+      currency,
       type: r.type,
       categoryId: r.type === 'expense' ? expenseCategoryId : incomeCategoryId,
       description: r.description,
       recurring: false,
     })))
-    toast.success(included.length === 1 ? '1 transação importada.' : `${included.length} transações importadas.`)
+    toast.success(t('import.imported', { count: included.length }))
     close()
   }
 
   const colOptions = csvData?.headers.map((h, i) => (
-    <option key={i} value={i}>{h || `Coluna ${i + 1}`}</option>
+    <option key={i} value={i}>{h || t('import.column', { n: i + 1 })}</option>
   ))
 
   return (
-    <Modal open={open} onClose={close} title="Importar extrato (CSV/OFX)">
+    <Modal open={open} onClose={close} title={t('import.title')}>
       {step === 'file' && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-content-2">
-            Selecione um arquivo <strong>OFX</strong> (exportado pelo seu banco) ou <strong>CSV</strong>.
-          </p>
+          <p className="text-sm text-content-2">{t('import.fileIntro')}</p>
           <input
             type="file"
             accept=".csv,.ofx,.txt"
@@ -147,29 +155,29 @@ export function ImportModal({ open, onClose, categories, existingTransactions, o
 
       {step === 'map' && csvData && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-content-2">Indique o que cada coluna do CSV representa:</p>
-          <Select label="Coluna da data" value={mapping.dateCol} onChange={e => setMapping(m => ({ ...m, dateCol: Number(e.target.value) }))}>
+          <p className="text-sm text-content-2">{t('import.mappingIntro')}</p>
+          <Select label={t('import.dateColumn')} value={mapping.dateCol} onChange={e => setMapping(m => ({ ...m, dateCol: Number(e.target.value) }))}>
             {colOptions}
           </Select>
-          <Select label="Coluna do valor" value={mapping.amountCol} onChange={e => setMapping(m => ({ ...m, amountCol: Number(e.target.value) }))}>
+          <Select label={t('import.amountColumn')} value={mapping.amountCol} onChange={e => setMapping(m => ({ ...m, amountCol: Number(e.target.value) }))}>
             {colOptions}
           </Select>
-          <Select label="Coluna da descrição" value={mapping.descCol} onChange={e => setMapping(m => ({ ...m, descCol: Number(e.target.value) }))}>
+          <Select label={t('import.descriptionColumn')} value={mapping.descCol} onChange={e => setMapping(m => ({ ...m, descCol: Number(e.target.value) }))}>
             {colOptions}
           </Select>
-          <Select label="Formato da data" value={mapping.dateFormat} onChange={e => setMapping(m => ({ ...m, dateFormat: e.target.value as CsvDateFormat }))}>
-            <option value="dd/MM/yyyy">dd/mm/aaaa (31/12/2026)</option>
-            <option value="yyyy-MM-dd">aaaa-mm-dd (2026-12-31)</option>
-            <option value="MM/dd/yyyy">mm/dd/aaaa (12/31/2026)</option>
+          <Select label={t('import.dateFormat')} value={mapping.dateFormat} onChange={e => setMapping(m => ({ ...m, dateFormat: e.target.value as CsvDateFormat }))}>
+            <option value="dd/MM/yyyy">{t('import.dateFormatDMY')}</option>
+            <option value="yyyy-MM-dd">{t('import.dateFormatYMD')}</option>
+            <option value="MM/dd/yyyy">{t('import.dateFormatMDY')}</option>
           </Select>
-          <Select label="Tipo das transações" value={mapping.sign} onChange={e => setMapping(m => ({ ...m, sign: e.target.value as CsvMapping['sign'] }))}>
-            <option value="auto">Pelo sinal do valor (negativo = gasto)</option>
-            <option value="all-expense">Todas são gastos</option>
-            <option value="all-income">Todas são receitas</option>
+          <Select label={t('import.typeSource')} value={mapping.sign} onChange={e => setMapping(m => ({ ...m, sign: e.target.value as CsvMapping['sign'] }))}>
+            <option value="auto">{t('import.typeFromSign')}</option>
+            <option value="all-expense">{t('import.typeAllExpense')}</option>
+            <option value="all-income">{t('import.typeAllIncome')}</option>
           </Select>
           <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={reset}>Voltar</Button>
-            <Button onClick={handleMapContinue}>Continuar</Button>
+            <Button variant="secondary" onClick={reset}>{t('common.back')}</Button>
+            <Button onClick={handleMapContinue}>{t('common.continue')}</Button>
           </div>
         </div>
       )}
@@ -177,15 +185,20 @@ export function ImportModal({ open, onClose, categories, existingTransactions, o
       {step === 'preview' && (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-3">
+            <CurrencySelect
+              label={t('import.statementCurrency')}
+              value={currency}
+              onChange={setCurrency}
+            />
             {hasExpenses && (
-              <Select label="Categoria para gastos" value={expenseCategoryId} onChange={e => setExpenseCategoryId(e.target.value)}>
-                <option value="">Selecione...</option>
+              <Select label={t('import.expenseCategory')} value={expenseCategoryId} onChange={e => setExpenseCategoryId(e.target.value)}>
+                <option value="">{t('common.select')}</option>
                 {expenseCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             )}
             {hasIncomes && (
-              <Select label="Categoria para receitas" value={incomeCategoryId} onChange={e => setIncomeCategoryId(e.target.value)}>
-                <option value="">Selecione...</option>
+              <Select label={t('import.incomeCategory')} value={incomeCategoryId} onChange={e => setIncomeCategoryId(e.target.value)}>
+                <option value="">{t('common.select')}</option>
                 {incomeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             )}
@@ -204,24 +217,24 @@ export function ImportModal({ open, onClose, categories, existingTransactions, o
                   <p className="text-sm text-content truncate">{r.description}</p>
                   <p className="text-xs text-content-3">
                     {formatDate(r.date)}
-                    {r.duplicate && <span className="text-warning"> · possível duplicata</span>}
+                    {r.duplicate && <span className="text-warning"> · {t('import.possibleDuplicate')}</span>}
                   </p>
                 </div>
                 <span className={`text-sm font-medium flex-shrink-0 ${r.type === 'expense' ? 'text-content' : 'text-success'}`}>
-                  {r.type === 'expense' ? '-' : '+'}{formatCurrency(r.amount)}
+                  {r.type === 'expense' ? '-' : '+'}{money.formatIn(r.amount, currency)}
                 </span>
               </label>
             ))}
           </div>
 
           <p className="text-xs text-content-3">
-            {included.length} de {rows.length} selecionada(s). Possíveis duplicatas vêm desmarcadas.
+            {t('import.selectedCount', { included: included.length, total: rows.length })}
           </p>
 
           <div className="flex gap-2 justify-end">
-            <Button variant="secondary" onClick={reset}>Voltar</Button>
+            <Button variant="secondary" onClick={reset}>{t('common.back')}</Button>
             <Button onClick={handleImport} disabled={!canImport}>
-              Importar {included.length > 0 ? `(${included.length})` : ''}
+              {t('import.importCount', { count: included.length })}
             </Button>
           </div>
         </div>

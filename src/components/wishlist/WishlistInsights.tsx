@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { format, subMonths } from 'date-fns'
 import { Lightbulb, Check, ChevronDown, ChevronUp } from 'lucide-react'
-import type { WishlistItem, Transaction } from '../../types'
+import type { WishlistItem } from '../../types'
 import { useBudget } from '../../hooks/useBudget'
-import { formatCurrency } from '../../utils/formatCurrency'
+import type { ConvertedTransaction } from '../../hooks/useTransactions'
+import { useMoney } from '../../hooks/useMoney'
 import { currentMonth } from '../../utils/formatDate'
 
 interface WishlistInsightsProps {
   items: WishlistItem[]
-  transactions: Transaction[]
+  /** Já convertidas para a moeda preferida — as médias só fazem sentido numa moeda só. */
+  transactions: ConvertedTransaction[]
   availableBalance: number
 }
 
@@ -21,7 +24,7 @@ const MIN_MONTHS_FOR_HISTORY = 3
  * dos últimos N meses **anteriores ao mês corrente** (mês corrente é incompleto).
  * Só conta meses que têm pelo menos uma transação.
  */
-function calcAverageMonthlyBalance(transactions: Transaction[]): { avg: number; monthsCounted: number } {
+function calcAverageMonthlyBalance(transactions: ConvertedTransaction[]): { avg: number; monthsCounted: number } {
   const now = new Date()
   const targetMonths: string[] = []
   for (let i = MONTHS_BACK; i >= 1; i--) {
@@ -36,7 +39,7 @@ function calcAverageMonthlyBalance(transactions: Transaction[]): { avg: number; 
     if (!targetMonths.includes(m)) return
     monthsWithData.add(m)
     const sign = t.type === 'income' ? 1 : -1
-    monthlyTotals[m] = (monthlyTotals[m] ?? 0) + sign * t.amount
+    monthlyTotals[m] = (monthlyTotals[m] ?? 0) + sign * t.convertedAmount
   })
 
   if (monthsWithData.size === 0) return { avg: 0, monthsCounted: 0 }
@@ -47,13 +50,13 @@ function calcAverageMonthlyBalance(transactions: Transaction[]): { avg: number; 
 /**
  * Parcelas (transações com installmentGroupId) com data no mês corrente.
  */
-function calcInstallmentsThisMonth(transactions: Transaction[]): { total: number; count: number } {
+function calcInstallmentsThisMonth(transactions: ConvertedTransaction[]): { total: number; count: number } {
   const currentMonth = format(new Date(), 'yyyy-MM')
   const installments = transactions.filter(
     t => t.installmentGroupId && t.date.startsWith(currentMonth)
   )
   return {
-    total: installments.reduce((s, t) => s + t.amount, 0),
+    total: installments.reduce((s, t) => s + t.convertedAmount, 0),
     count: installments.length,
   }
 }
@@ -70,6 +73,8 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 
 export function WishlistInsights({ items, transactions, availableBalance }: WishlistInsightsProps) {
   const { getBudget } = useBudget()
+  const { t } = useTranslation()
+  const money = useMoney()
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(STORAGE_KEY) === '1')
 
   const toggleCollapsed = () => {
@@ -78,13 +83,14 @@ export function WishlistInsights({ items, transactions, availableBalance }: Wish
     localStorage.setItem(STORAGE_KEY, next ? '1' : '0')
   }
 
+  // Preços são prospectivos (ainda não comprou) → cotação de hoje.
   const totalDesired = useMemo(
-    () => items.filter(i => !i.purchased).reduce((s, i) => s + i.price, 0),
-    [items]
+    () => items.filter(i => !i.purchased).reduce((sum, i) => sum + money.convertToday(i.price, i.currency), 0),
+    [items, money]
   )
   const totalPurchased = useMemo(
-    () => items.filter(i => i.purchased).reduce((s, i) => s + i.price, 0),
-    [items]
+    () => items.filter(i => i.purchased).reduce((sum, i) => sum + money.convertToday(i.price, i.currency), 0),
+    [items, money]
   )
   const desiredCount = items.filter(i => !i.purchased).length
 
@@ -100,23 +106,23 @@ export function WishlistInsights({ items, transactions, availableBalance }: Wish
       return {
         effectiveMonthly: avgMonthly,
         usingFallback: false,
-        fallbackSub: `média de ${monthsCounted} mês(es) anteriores`,
+        fallbackSub: t('wishlistInsights.avgOfMonths', { count: monthsCounted }),
       }
     }
     const thisMonth = currentMonth()
     const budget = getBudget(thisMonth)
     const currentIncome = transactions
       .filter(t => t.type === 'income' && t.date.startsWith(thisMonth))
-      .reduce((s, t) => s + t.amount, 0)
+      .reduce((s, t) => s + t.convertedAmount, 0)
     const estimated = currentIncome - budget.totalLimit
     return {
       effectiveMonthly: estimated,
       usingFallback: true,
       fallbackSub: budget.totalLimit > 0
-        ? 'estimativa: receita − orçamento planejado'
-        : 'estimativa: receita do mês (sem orçamento definido)',
+        ? t('wishlistInsights.estimateIncomeMinusBudget')
+        : t('wishlistInsights.estimateIncomeOnly'),
     }
-  }, [monthsCounted, avgMonthly, transactions, getBudget])
+  }, [monthsCounted, avgMonthly, transactions, getBudget, t])
 
   const monthsToBuyAll =
     effectiveMonthly > 0 && totalDesired > 0 ? Math.ceil(totalDesired / effectiveMonthly) : null
@@ -127,21 +133,21 @@ export function WishlistInsights({ items, transactions, availableBalance }: Wish
       .filter(i => !i.purchased)
       .slice()
       .sort((a, b) => {
-        const aMonthly = a.price / (a.plannedInstallments ?? 1)
-        const bMonthly = b.price / (b.plannedInstallments ?? 1)
+        const aMonthly = money.convertToday(a.price, a.currency) / (a.plannedInstallments ?? 1)
+        const bMonthly = money.convertToday(b.price, b.currency) / (b.plannedInstallments ?? 1)
         return b.priority - a.priority || aMonthly - bMonthly
       })
     let remaining = availableBalance
     const fitting: WishlistItem[] = []
     for (const item of unpurchased) {
-      const monthlyCost = item.price / (item.plannedInstallments ?? 1)
+      const monthlyCost = money.convertToday(item.price, item.currency) / (item.plannedInstallments ?? 1)
       if (monthlyCost <= remaining) {
         fitting.push(item)
         remaining -= monthlyCost
       }
     }
     return { fitting, totalFit: availableBalance - remaining }
-  }, [items, availableBalance])
+  }, [items, availableBalance, money])
 
   return (
     <div className="bg-surface rounded-2xl border border-border-subtle mb-6 overflow-hidden">
@@ -152,10 +158,12 @@ export function WishlistInsights({ items, transactions, availableBalance }: Wish
         aria-expanded={!collapsed}
       >
         <span className="text-sm font-semibold text-content flex items-center gap-2">
-          <Lightbulb size={15} className="text-warning" /> Insights
+          <Lightbulb size={15} className="text-warning" /> {t('wishlistInsights.title')}
         </span>
         <span className="text-xs text-content-3 flex items-center gap-1">
-          {collapsed ? <><ChevronDown size={13} /> Expandir</> : <><ChevronUp size={13} /> Colapsar</>}
+          {collapsed
+            ? <><ChevronDown size={13} /> {t('wishlistInsights.expand')}</>
+            : <><ChevronUp size={13} /> {t('wishlistInsights.collapse')}</>}
         </span>
       </button>
 
@@ -164,15 +172,15 @@ export function WishlistInsights({ items, transactions, availableBalance }: Wish
           {/* Linha 1: estado da wishlist */}
           <div className="flex flex-wrap gap-4 border-b border-border-subtle pb-4">
             <Metric
-              label="Total desejado"
-              value={formatCurrency(totalDesired)}
-              sub={`${desiredCount} item(s) não comprados`}
+              label={t('wishlistInsights.totalWanted')}
+              value={money.format(totalDesired)}
+              sub={t('wishlistInsights.notBought', { count: desiredCount })}
             />
             {totalPurchased > 0 && (
               <Metric
-                label="Já adquirido"
-                value={formatCurrency(totalPurchased)}
-                sub={`${items.length - desiredCount} item(s)`}
+                label={t('wishlistInsights.alreadyBought')}
+                value={money.format(totalPurchased)}
+                sub={t('wishlistInsights.itemCount', { count: items.length - desiredCount })}
               />
             )}
           </div>
@@ -180,28 +188,28 @@ export function WishlistInsights({ items, transactions, availableBalance }: Wish
           {/* Linha 2: análise financeira */}
           <div className="flex flex-wrap gap-4">
             <Metric
-              label={usingFallback ? 'Poupança estimada/mês' : 'Saldo médio mensal'}
-              value={effectiveMonthly !== 0 ? formatCurrency(effectiveMonthly) : '—'}
+              label={usingFallback ? t('wishlistInsights.estimatedSavings') : t('wishlistInsights.averageBalance')}
+              value={effectiveMonthly !== 0 ? money.format(effectiveMonthly) : t('common.none')}
               sub={fallbackSub}
             />
             <Metric
-              label="Parcelas este mês"
-              value={installments.count > 0 ? formatCurrency(installments.total) : '—'}
+              label={t('wishlistInsights.installmentsThisMonth')}
+              value={installments.count > 0 ? money.format(installments.total) : t('common.none')}
               sub={
                 installments.count > 0
-                  ? `${installments.count} parcela(s) comprometida(s)`
-                  : 'nenhuma parcela ativa'
+                  ? t('wishlistInsights.committed', { count: installments.count })
+                  : t('wishlistInsights.noActiveInstallments')
               }
             />
             <Metric
-              label="Pra comprar tudo"
-              value={monthsToBuyAll !== null ? `~${monthsToBuyAll} meses` : '—'}
+              label={t('wishlistInsights.toBuyEverything')}
+              value={monthsToBuyAll !== null ? t('wishlistInsights.monthsValue', { count: monthsToBuyAll }) : t('common.none')}
               sub={
                 monthsToBuyAll !== null
-                  ? usingFallback ? 'com poupança estimada' : 'com saldo médio histórico'
+                  ? usingFallback ? t('wishlistInsights.withEstimatedSavings') : t('wishlistInsights.withHistoricalAverage')
                   : effectiveMonthly <= 0
-                    ? 'poupança precisa ser positiva'
-                    : 'sem itens desejados'
+                    ? t('wishlistInsights.savingsMustBePositive')
+                    : t('wishlistInsights.noDesiredItems')
               }
             />
           </div>
@@ -210,20 +218,19 @@ export function WishlistInsights({ items, transactions, availableBalance }: Wish
           {availableBalance > 0 && desiredCount > 0 && (
             <div className="border-t border-border-subtle pt-4">
               <p className="text-xs font-semibold text-content-2 mb-2">
-                O que cabe esse mês
+                {t('wishlistInsights.fitsHeader')}
                 <span className="font-normal text-content-3 ml-1">
-                  (saldo disponível: {formatCurrency(availableBalance)})
+                  {t('wishlistInsights.availableBalance', { amount: money.format(availableBalance) })}
                 </span>
               </p>
               {fitsThisMonth.fitting.length === 0 ? (
-                <p className="text-xs text-content-3">
-                  Nenhum item cabe no saldo disponível deste mês.
-                </p>
+                <p className="text-xs text-content-3">{t('wishlistInsights.nothingFits')}</p>
               ) : (
                 <div className="flex flex-col gap-1.5">
                   {fitsThisMonth.fitting.map(item => {
                     const n = item.plannedInstallments ?? 1
-                    const monthly = item.price / n
+                    const itemPrice = money.convertToday(item.price, item.currency)
+                    const monthly = itemPrice / n
                     return (
                       <div key={item.id} className="flex items-center justify-between gap-2 text-xs">
                         <div className="flex items-center gap-1.5 min-w-0">
@@ -236,15 +243,17 @@ export function WishlistInsights({ items, transactions, availableBalance }: Wish
                           )}
                         </div>
                         <span className="text-content-2 shrink-0 font-medium">
-                          {n > 1 ? `${formatCurrency(monthly)}/mês` : formatCurrency(item.price)}
+                          {n > 1
+                            ? t('wishlistInsights.perMonth', { amount: money.format(monthly) })
+                            : money.format(itemPrice)}
                         </span>
                       </div>
                     )
                   })}
                   <div className="flex justify-between text-xs text-content-3 pt-1 border-t border-border-subtle mt-0.5">
-                    <span>Total sugerido</span>
+                    <span>{t('wishlistInsights.suggestedTotal')}</span>
                     <span className="font-medium text-content-2">
-                      {formatCurrency(fitsThisMonth.totalFit)} / {formatCurrency(availableBalance)}
+                      {money.format(fitsThisMonth.totalFit)} / {money.format(availableBalance)}
                     </span>
                   </div>
                 </div>

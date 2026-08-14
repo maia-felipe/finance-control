@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useTransactions } from '../../hooks/useTransactions'
 import { useCategories } from '../../hooks/useCategories'
 import { useBudget } from '../../hooks/useBudget'
 import { useInvestments } from '../../hooks/useInvestments'
-import { formatCurrency } from '../../utils/formatCurrency'
-import { formatMonth } from '../../utils/formatDate'
+import { useMoney } from '../../hooks/useMoney'
+import { useFxRange } from '../../contexts/FxContext'
+import { formatMonth, formatMonthShort } from '../../utils/formatDate'
 import { Card } from '../ui/Card'
 import { CategoryIcon } from '../ui/CategoryIcon'
 import { PeriodSelector } from '../ui/PeriodSelector'
@@ -14,7 +16,6 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
 } from 'recharts'
 import { format, subMonths, parseISO } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 import { useChartTheme } from '../../lib/chartTheme'
 
 interface DashboardPageProps {
@@ -41,20 +42,29 @@ function ProgressBar({ value, max, color = 'bg-primary' }: { value: number; max:
   )
 }
 
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload?.length) {
-    return (
-      <div className="bg-surface border border-border-subtle rounded-xl shadow-lg px-3 py-2 text-sm">
-        <p className="font-medium text-content">{payload[0].name}</p>
-        <p className="text-content-2">{formatCurrency(payload[0].value)}</p>
-      </div>
-    )
-  }
-  return null
+// O Recharts clona o elemento passado em `content`, injetando active/payload e
+// preservando as props já definidas. Definir o componente no módulo (em vez de
+// fabricá-lo em render) evita remontar o tooltip a cada render.
+interface CurrencyTooltipProps {
+  active?: boolean
+  payload?: { name?: string; value?: number }[]
+  format: (value: number) => string
+}
+
+function CurrencyTooltip({ active, payload, format }: CurrencyTooltipProps) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-surface border border-border-subtle rounded-xl shadow-lg px-3 py-2 text-sm">
+      <p className="font-medium text-content">{payload[0].name}</p>
+      <p className="text-content-2">{format(payload[0].value ?? 0)}</p>
+    </div>
+  )
 }
 
 export function DashboardPage({ month }: DashboardPageProps) {
-  const { getByMonth, getCumulativeBalance } = useTransactions()
+  const { t } = useTranslation()
+  const money = useMoney()
+  const { transactions: allTransactions, getByMonth, getCumulativeBalance } = useTransactions()
   const { categories, getCategoryById } = useCategories()
   const { getBudget } = useBudget()
   const { investments } = useInvestments()
@@ -64,10 +74,17 @@ export function DashboardPage({ month }: DashboardPageProps) {
   const transactions = getByMonth(month)
   const budget = getBudget(month)
 
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
-  const investmentsCurrentValue = investments.reduce((s, inv) => s + inv.currentValue, 0)
-  const investmentsAmountInvested = investments.reduce((s, inv) => s + inv.amountInvested, 0)
+  // O gráfico histórico olha até 24 meses para trás — garante que as cotações
+  // desse período estejam carregadas.
+  useFxRange(allTransactions.map(tx => tx.date))
+
+  const totalIncome = transactions.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + tx.convertedAmount, 0)
+  const totalExpense = transactions.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.convertedAmount, 0)
+  // Valor de mercado usa a cotação de hoje; o custo, a do dia do aporte — a
+  // variação cambial entra no ganho/perda, que é o resultado real de manter
+  // dinheiro em outra moeda.
+  const investmentsCurrentValue = investments.reduce((sum, inv) => sum + money.convertToday(inv.currentValue, inv.currency), 0)
+  const investmentsAmountInvested = investments.reduce((sum, inv) => sum + money.convert(inv.amountInvested, inv.currency, inv.startDate), 0)
   const investmentsGain = investmentsCurrentValue - investmentsAmountInvested
   const investmentsGainPct = investmentsAmountInvested > 0 ? (investmentsGain / investmentsAmountInvested) * 100 : 0
   const balance = getCumulativeBalance(month)
@@ -81,8 +98,8 @@ export function DashboardPage({ month }: DashboardPageProps) {
   const categoryData = useMemo(() => {
     const map: Record<string, number> = {}
     transactions
-      .filter(t => t.type === 'expense' && !excludedFromCharts.has(t.categoryId))
-      .forEach(t => { map[t.categoryId] = (map[t.categoryId] ?? 0) + t.amount })
+      .filter(tx => tx.type === 'expense' && !excludedFromCharts.has(tx.categoryId))
+      .forEach(tx => { map[tx.categoryId] = (map[tx.categoryId] ?? 0) + tx.convertedAmount })
     return Object.entries(map)
       .map(([id, value]) => ({ name: getCategoryById(id)?.name ?? '?', value, color: getCategoryById(id)?.color ?? '#6b7280' }))
       .sort((a, b) => b.value - a.value)
@@ -95,11 +112,11 @@ export function DashboardPage({ month }: DashboardPageProps) {
       const ts = getByMonth(m)
       const b = getBudget(m)
       return {
-        name: format(parseISO(`${m}-01`), 'MMM', { locale: ptBR }),
-        Gasto: ts.filter(t => t.type === 'expense' && !excludedFromCharts.has(t.categoryId)).reduce((s, t) => s + t.amount, 0),
-        Planejado: b.totalLimit,
-        Receita: ts.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-        Investido: ts.filter(t => t.type === 'investment').reduce((s, t) => s + t.amount, 0),
+        name: formatMonthShort(m),
+        expense: ts.filter(tx => tx.type === 'expense' && !excludedFromCharts.has(tx.categoryId)).reduce((sum, tx) => sum + tx.convertedAmount, 0),
+        planned: b.totalLimit,
+        income: ts.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + tx.convertedAmount, 0),
+        invested: ts.filter(tx => tx.type === 'investment').reduce((sum, tx) => sum + tx.convertedAmount, 0),
       }
     })
   }, [month, period, getByMonth, getBudget, excludedFromCharts])
@@ -109,7 +126,7 @@ export function DashboardPage({ month }: DashboardPageProps) {
   const catProgress = expenseCategories
     .map(cat => ({
       cat,
-      spent: transactions.filter(t => t.type === 'expense' && t.categoryId === cat.id).reduce((s, t) => s + t.amount, 0),
+      spent: transactions.filter(tx => tx.type === 'expense' && tx.categoryId === cat.id).reduce((sum, tx) => sum + tx.convertedAmount, 0),
       limit: budget.categoryLimits[cat.id] ?? 0,
     }))
     .filter(c => c.spent > 0 || c.limit > 0)
@@ -118,23 +135,25 @@ export function DashboardPage({ month }: DashboardPageProps) {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold tracking-tight text-content mb-6 capitalize">{formatMonth(month)}</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-content mb-6">{formatMonth(month)}</h1>
 
       {/* Summary cards */}
       <div className="flex gap-3 mb-6 flex-wrap">
-        <SummaryCard label="Saldo" value={formatCurrency(balance)} color={balance >= 0 ? 'text-success' : 'text-danger'} />
-        <SummaryCard label="Receitas" value={formatCurrency(totalIncome)} color="text-success" />
+        <SummaryCard label={t('dashboard.balance')} value={money.format(balance)} color={balance >= 0 ? 'text-success' : 'text-danger'} />
+        <SummaryCard label={t('dashboard.income')} value={money.format(totalIncome)} color="text-success" />
         <SummaryCard
-          label="Gastos"
-          value={formatCurrency(totalExpense)}
+          label={t('dashboard.expenses')}
+          value={money.format(totalExpense)}
           color="text-content"
-          sub={budget.totalLimit > 0 ? `${budgetPct}% do orçamento (${formatCurrency(budget.totalLimit)})` : undefined}
+          sub={budget.totalLimit > 0
+            ? t('dashboard.budgetShare', { pct: budgetPct, amount: money.format(budget.totalLimit) })
+            : undefined}
         />
         <SummaryCard
-          label="Investido"
-          value={formatCurrency(investmentsCurrentValue)}
+          label={t('dashboard.invested')}
+          value={money.format(investmentsCurrentValue)}
           color="text-accent"
-          sub={investmentsAmountInvested > 0 ? `${investmentsGain >= 0 ? '+' : ''}${formatCurrency(investmentsGain)} (${investmentsGainPct >= 0 ? '+' : ''}${investmentsGainPct.toFixed(2)}%)` : undefined}
+          sub={investmentsAmountInvested > 0 ? `${investmentsGain >= 0 ? '+' : ''}${money.format(investmentsGain)} (${investmentsGainPct >= 0 ? '+' : ''}${investmentsGainPct.toFixed(2)}%)` : undefined}
         />
       </div>
 
@@ -142,8 +161,8 @@ export function DashboardPage({ month }: DashboardPageProps) {
       {budget.totalLimit > 0 && (
         <Card className="mb-5">
           <div className="flex justify-between text-sm mb-2">
-            <span className="font-medium text-content">Orçamento geral</span>
-            <span className="text-content-2">{formatCurrency(totalExpense)} / {formatCurrency(budget.totalLimit)}</span>
+            <span className="font-medium text-content">{t('dashboard.overallBudget')}</span>
+            <span className="text-content-2">{money.format(totalExpense)} / {money.format(budget.totalLimit)}</span>
           </div>
           <ProgressBar value={totalExpense} max={budget.totalLimit} />
         </Card>
@@ -153,9 +172,9 @@ export function DashboardPage({ month }: DashboardPageProps) {
       <div className="grid md:grid-cols-2 gap-5 mb-5">
         {/* Donut chart */}
         <Card>
-          <p className="text-sm font-semibold text-content mb-4">Gastos por categoria</p>
+          <p className="text-sm font-semibold text-content mb-4">{t('dashboard.spendingByCategory')}</p>
           {categoryData.length === 0 ? (
-            <p className="text-sm text-content-3 text-center py-10">Nenhum gasto registrado.</p>
+            <p className="text-sm text-content-3 text-center py-10">{t('dashboard.noSpending')}</p>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={200}>
@@ -165,7 +184,7 @@ export function DashboardPage({ month }: DashboardPageProps) {
                       <Cell key={i} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CurrencyTooltip format={money.format} />} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2">
@@ -183,20 +202,20 @@ export function DashboardPage({ month }: DashboardPageProps) {
         {/* Bar chart - history */}
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-semibold text-content">Últimos {period} meses</p>
+            <p className="text-sm font-semibold text-content">{t('dashboard.lastMonths', { count: period })}</p>
             <PeriodSelector value={period} onChange={setPeriod} />
           </div>
           <ResponsiveContainer width="100%" height={230}>
             <BarChart data={historyData} barSize={8}>
               <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} />
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: chart.tick }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: chart.tick }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${(v/1000).toFixed(0)}k`} width={45} />
-              <Tooltip formatter={(v) => formatCurrency(Number(v))} contentStyle={chart.tooltip} />
+              <YAxis tick={{ fontSize: 11, fill: chart.tick }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${money.symbol}${(v / 1000).toFixed(0)}k`} width={45} />
+              <Tooltip formatter={(v) => money.format(Number(v))} contentStyle={chart.tooltip} />
               <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="Receita" fill={chart.income} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Gasto" fill={chart.expense} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Investido" fill={chart.invested} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Planejado" fill={chart.planned} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="income" name={t('dashboard.chart.income')} fill={chart.income} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="expense" name={t('dashboard.chart.expense')} fill={chart.expense} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="invested" name={t('dashboard.chart.invested')} fill={chart.invested} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="planned" name={t('dashboard.chart.planned')} fill={chart.planned} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -205,7 +224,7 @@ export function DashboardPage({ month }: DashboardPageProps) {
       {/* Category progress */}
       {catProgress.length > 0 && (
         <Card>
-          <p className="text-sm font-semibold text-content mb-4">Progresso por categoria</p>
+          <p className="text-sm font-semibold text-content mb-4">{t('dashboard.categoryProgress')}</p>
           <div className="flex flex-col gap-3">
             {catProgress.map(({ cat, spent, limit }) => (
               <div key={cat.id}>
@@ -215,8 +234,8 @@ export function DashboardPage({ month }: DashboardPageProps) {
                     {cat.name}
                   </div>
                   <span>
-                    {formatCurrency(spent)}
-                    {limit > 0 && <span className="text-content-3"> / {formatCurrency(limit)}</span>}
+                    {money.format(spent)}
+                    {limit > 0 && <span className="text-content-3"> / {money.format(limit)}</span>}
                   </span>
                 </div>
                 {limit > 0 && <ProgressBar value={spent} max={limit} />}

@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { addMonths, format, parseISO } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import type { TransactionType, WishlistItem } from '../../types'
+import type { TransactionType, WishlistItem, CurrencyCode } from '../../types'
 import { useCategories } from '../../hooks/useCategories'
 import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Button } from '../ui/Button'
-import { todayISO } from '../../utils/formatDate'
-import { formatCurrency } from '../../utils/formatCurrency'
+import { todayISO, formatMonth } from '../../utils/formatDate'
+import { useMoney } from '../../hooks/useMoney'
+import { useSettings } from '../../contexts/SettingsContext'
+import { MoneyField } from '../ui/CurrencySelect'
 
 export interface PurchaseFormData {
   date: string
   amount: number
+  currency: CurrencyCode
   type: TransactionType
   categoryId: string
   description: string
@@ -26,6 +29,9 @@ interface PurchaseFormProps {
 }
 
 export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
+  const { t } = useTranslation()
+  const money = useMoney()
+  const { trackCurrency } = useSettings()
   const { categories } = useCategories()
 
   // Pré-seleciona a categoria de transação se o nome bater com a da wishlist
@@ -36,6 +42,7 @@ export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
 
   const [date, setDate] = useState(todayISO())
   const [amount, setAmount] = useState(item.price.toFixed(2))
+  const [currency, setCurrency] = useState<CurrencyCode>(item.currency)
   const [type] = useState<TransactionType>('expense')
   const [categoryId, setCategoryId] = useState(initialCategoryId)
   const [description, setDescription] = useState(item.name)
@@ -58,14 +65,14 @@ export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
 
   const validate = () => {
     const e: Record<string, string> = {}
-    if (!date) e.date = 'Data é obrigatória'
-    if (!amountNum || amountNum <= 0) e.amount = 'Valor inválido'
-    if (!categoryId) e.categoryId = 'Selecione uma categoria'
-    if (!description.trim()) e.description = 'Descrição é obrigatória'
+    if (!date) e.date = t('transactionForm.dateRequired')
+    if (!amountNum || amountNum <= 0) e.amount = t('transactionForm.invalidAmount')
+    if (!categoryId) e.categoryId = t('transactionForm.selectCategory')
+    if (!description.trim()) e.description = t('purchaseForm.descriptionRequired')
     if (isInstallment) {
-      if (installments < 2) e.installments = 'Use 2 ou mais parcelas'
-      if (installments > 60) e.installments = 'Máximo 60 parcelas'
-      if (!firstDate) e.firstDate = 'Data obrigatória'
+      if (installments < 2) e.installments = t('purchaseForm.installmentsMin')
+      if (installments > 60) e.installments = t('purchaseForm.installmentsMax')
+      if (!firstDate) e.firstDate = t('purchaseForm.dateRequired')
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -74,9 +81,11 @@ export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
+    trackCurrency(currency)
     onSubmit({
       date: isInstallment ? firstDate : date,
       amount: amountNum,
+      currency,
       type,
       categoryId,
       description: description.trim(),
@@ -87,44 +96,41 @@ export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <p className="text-xs text-content-2 -mt-1">
-        Vamos registrar essa compra como gasto. Ajuste os detalhes antes de salvar.
-      </p>
+      <p className="text-xs text-content-2 -mt-1">{t('purchaseForm.intro')}</p>
 
       <div className="grid grid-cols-2 gap-3">
         <Input
-          label="Data da compra"
+          label={t('purchaseForm.purchaseDate')}
           type="date"
           value={date}
           onChange={e => setDate(e.target.value)}
           error={errors.date}
           disabled={isInstallment}
         />
-        <Input
-          label="Valor total (R$)"
-          type="number"
-          min="0"
-          step="0.01"
-          value={amount}
-          onChange={e => setAmount(e.target.value)}
+        <MoneyField
+          label={t('purchaseForm.totalAmount', { currency })}
+          amount={amount}
+          currency={currency}
+          onAmountChange={setAmount}
+          onCurrencyChange={setCurrency}
           error={errors.amount}
         />
       </div>
 
       <Select
-        label="Categoria"
+        label={t('common.category')}
         value={categoryId}
         onChange={e => setCategoryId(e.target.value)}
         error={errors.categoryId}
       >
-        <option value="">Selecione...</option>
+        <option value="">{t('common.select')}</option>
         {filteredCategories.map(c => (
           <option key={c.id} value={c.id}>{c.name}</option>
         ))}
       </Select>
 
       <Input
-        label="Descrição"
+        label={t('common.description')}
         value={description}
         onChange={e => setDescription(e.target.value)}
         error={errors.description}
@@ -139,14 +145,14 @@ export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
             onChange={e => setIsInstallment(e.target.checked)}
             className="w-4 h-4 rounded accent-primary"
           />
-          <span className="text-sm font-medium text-content">Pagamento parcelado</span>
+          <span className="text-sm font-medium text-content">{t('purchaseForm.installmentPayment')}</span>
         </label>
 
         {isInstallment && (
           <div className="flex flex-col gap-3 pl-6 border-l-2 border-accent-soft">
             <div className="grid grid-cols-2 gap-3">
               <Input
-                label="Número de parcelas"
+                label={t('purchaseForm.installmentCount')}
                 type="number"
                 min="2"
                 max="60"
@@ -156,7 +162,7 @@ export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
                 error={errors.installments}
               />
               <Input
-                label="Primeira parcela em"
+                label={t('purchaseForm.firstInstallmentOn')}
                 type="date"
                 value={firstDate}
                 onChange={e => setFirstDate(e.target.value)}
@@ -166,11 +172,11 @@ export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
 
             {installments >= 2 && firstDate && lastDate && (
               <div className="text-xs text-content-2 bg-accent-soft rounded-md px-3 py-2 flex flex-col gap-0.5">
-                <span>
-                  <strong className="text-accent">{formatCurrency(installmentValue)}</strong> × {installments} vezes
+                <span className="text-accent font-semibold">
+                  {t('purchaseForm.timesCount', { amount: money.formatIn(installmentValue, currency), count: installments })}
                 </span>
                 <span>
-                  Última parcela: <strong className="capitalize">{format(lastDate, 'MMMM yyyy', { locale: ptBR })}</strong>
+                  {t('purchaseForm.lastInstallment', { month: formatMonth(format(lastDate, 'yyyy-MM')) })}
                 </span>
               </div>
             )}
@@ -179,8 +185,8 @@ export function PurchaseForm({ item, onSubmit, onCancel }: PurchaseFormProps) {
       </div>
 
       <div className="flex gap-2 justify-end pt-2">
-        <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit">Salvar</Button>
+        <Button type="button" variant="secondary" onClick={onCancel}>{t('common.cancel')}</Button>
+        <Button type="submit">{t('common.save')}</Button>
       </div>
     </form>
   )

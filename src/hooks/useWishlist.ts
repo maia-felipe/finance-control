@@ -5,6 +5,7 @@ import { generateId } from '../utils/generateId'
 import { useAuth } from '../contexts/AuthContext'
 import { persist } from '../lib/persist'
 import { toast } from '../lib/toast'
+import i18n from '../i18n'
 
 function rowToItem(row: Record<string, unknown>): WishlistItem {
   return {
@@ -12,6 +13,7 @@ function rowToItem(row: Record<string, unknown>): WishlistItem {
     name: row.name as string,
     url: (row.url as string | null) ?? undefined,
     price: row.price as number,
+    currency: (row.currency as string | null) ?? 'BRL',
     category: (row.category as string | null) ?? undefined,
     subcategory: (row.subcategory as string | null) ?? undefined,
     priority: (row.priority as number) ?? 3,
@@ -43,7 +45,7 @@ export function useWishlist() {
       .then(({ data, error }) => {
         if (error) {
           console.error('loadWishlist:', error)
-          toast.error('Não foi possível carregar a lista de desejos.')
+          toast.error(i18n.t('errors.loadWishlist'))
         }
         if (data) setItems(data.map(rowToItem))
         else setItems([])
@@ -65,12 +67,13 @@ export function useWishlist() {
       createdAt,
     }
     setItems(prev => [newItem, ...prev])
-    persist('Não foi possível salvar o item da lista de desejos.', supabase.from('wishlist_items').insert({
+    persist(i18n.t('errors.saveWishlistItem'), supabase.from('wishlist_items').insert({
       id: newItem.id,
       user_id: user.id,
       name: newItem.name,
       url: newItem.url ?? null,
       price: newItem.price,
+      currency: newItem.currency,
       category: newItem.category ?? null,
       subcategory: newItem.subcategory ?? null,
       priority: newItem.priority,
@@ -89,6 +92,7 @@ export function useWishlist() {
     if (data.name !== undefined) patch.name = data.name
     if (data.url !== undefined) patch.url = data.url ?? null
     if (data.price !== undefined) patch.price = data.price
+    if (data.currency !== undefined) patch.currency = data.currency
     if (data.category !== undefined) patch.category = data.category ?? null
     if (data.subcategory !== undefined) patch.subcategory = data.subcategory ?? null
     if (data.priority !== undefined) patch.priority = data.priority
@@ -97,13 +101,13 @@ export function useWishlist() {
     if (data.purchasedAt !== undefined) patch.purchased_at = data.purchasedAt ?? null
     if (data.transactionId !== undefined) patch.transaction_id = data.transactionId ?? null
     if (data.notes !== undefined) patch.notes = data.notes ?? null
-    persist('Não foi possível atualizar o item da lista de desejos.',
+    persist(i18n.t('errors.updateWishlistItem'),
       supabase.from('wishlist_items').update(patch).eq('id', id), reload)
   }
 
   const deleteItem = (id: string) => {
     setItems(prev => prev.filter(i => i.id !== id))
-    persist('Não foi possível excluir o item da lista de desejos.',
+    persist(i18n.t('errors.deleteWishlistItem'),
       supabase.from('wishlist_items').delete().eq('id', id), reload)
   }
 

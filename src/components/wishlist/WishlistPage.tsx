@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { addMonths, format, parseISO } from 'date-fns'
 import { Check, Pencil, Trash2, Undo2, ExternalLink } from 'lucide-react'
 import { useWishlist } from '../../hooks/useWishlist'
@@ -6,20 +7,20 @@ import { useTransactions } from '../../hooks/useTransactions'
 import { Card } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
-import { formatCurrency } from '../../utils/formatCurrency'
+import { useMoney } from '../../hooks/useMoney'
 import { generateId } from '../../utils/generateId'
 import { StarRating } from './StarRating'
 import { WishlistForm } from './WishlistForm'
 import { PurchaseForm } from './PurchaseForm'
 import { WishlistInsights } from './WishlistInsights'
-import { AiInsightCard } from '../insights/AiInsightCard'
-import { currentMonth } from '../../utils/formatDate'
 import type { PurchaseFormData } from './PurchaseForm'
 import type { WishlistItem } from '../../types'
 
 const ROOT_SUB_KEY = '__root__'
 
 export function WishlistPage() {
+  const { t } = useTranslation()
+  const money = useMoney()
   const { items, loading, addItem, updateItem, deleteItem } = useWishlist()
   const { transactions, addTransaction, removeByPurchaseRef, getCumulativeBalance } = useTransactions()
   const [showAdd, setShowAdd] = useState(false)
@@ -41,8 +42,11 @@ export function WishlistPage() {
     () => items.filter(i => !i.purchased && selectedIds.has(i.id)),
     [items, selectedIds]
   )
-  const selectedTotal = selectedItems.reduce((s, i) => s + i.price, 0)
-  const selectedMonthlyTotal = selectedItems.reduce((s, i) => s + i.price / (i.plannedInstallments ?? 1), 0)
+  // Itens podem estar em moedas diferentes; a comparação com o saldo só faz
+  // sentido depois de converter. Preço é prospectivo → cotação de hoje.
+  const selectedTotal = selectedItems.reduce((sum, i) => sum + money.convertToday(i.price, i.currency), 0)
+  const selectedMonthlyTotal = selectedItems.reduce(
+    (sum, i) => sum + money.convertToday(i.price, i.currency) / (i.plannedInstallments ?? 1), 0)
   const selectionFits = selectedMonthlyTotal <= availableBalance && selectedIds.size > 0
 
   const handleConfirmPurchase = (data: PurchaseFormData) => {
@@ -54,6 +58,7 @@ export function WishlistPage() {
       const txId = addTransaction({
         date: data.date,
         amount: data.amount,
+        currency: data.currency,
         type: data.type,
         categoryId: data.categoryId,
         description: data.description,
@@ -70,9 +75,12 @@ export function WishlistPage() {
         addTransaction({
           date,
           amount: installmentValue,
+          currency: data.currency,
           type: data.type,
           categoryId: data.categoryId,
-          description: `${data.description} (parcela ${i + 1}/${data.installments})`,
+          description: t('wishlist.installmentOf', {
+            name: data.description, current: i + 1, total: data.installments,
+          }),
           recurring: false,
           installmentGroupId: groupId,
         })
@@ -97,7 +105,7 @@ export function WishlistPage() {
   const grouped = useMemo(() => {
     const map: Record<string, Record<string, WishlistItem[]>> = {}
     items.forEach(item => {
-      const cat = item.category?.trim() || 'Sem categoria'
+      const cat = item.category?.trim() || t('wishlist.uncategorized')
       const sub = item.subcategory?.trim() || ROOT_SUB_KEY
       if (!map[cat]) map[cat] = {}
       if (!map[cat][sub]) map[cat][sub] = []
@@ -112,12 +120,12 @@ export function WishlistPage() {
       })
     })
     return map
-  }, [items])
+  }, [items, t])
 
   if (loading) {
     return (
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
-        <p className="text-sm text-content-3 text-center py-10">Carregando...</p>
+        <p className="text-sm text-content-3 text-center py-10">{t('common.loading')}</p>
       </div>
     )
   }
@@ -125,31 +133,34 @@ export function WishlistPage() {
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-content">Desejos</h1>
-        <Button onClick={() => setShowAdd(true)}>+ Novo item</Button>
+        <h1 className="text-2xl font-bold tracking-tight text-content">{t('wishlist.title')}</h1>
+        <Button onClick={() => setShowAdd(true)}>{t('wishlist.newItem')}</Button>
       </div>
 
       <WishlistInsights items={items} transactions={transactions} availableBalance={availableBalance} />
-
-      <AiInsightCard type="wishlist" month={currentMonth()} title="Conselheiro de compras com IA" />
 
       {selectedIds.size > 0 && (
         <div className="sticky top-16 z-30 bg-surface border border-accent-soft rounded-xl shadow-sm px-4 py-3 mb-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-content">
-              {selectedIds.size} item(s) — {formatCurrency(selectedMonthlyTotal)}/mês
+              {t('wishlist.selected', { count: selectedIds.size, amount: money.format(selectedMonthlyTotal) })}
               {selectedTotal !== selectedMonthlyTotal && (
-                <span className="text-xs font-normal text-content-3 ml-1">(total: {formatCurrency(selectedTotal)})</span>
+                <span className="text-xs font-normal text-content-3 ml-1">
+                  {t('wishlist.selectedTotal', { amount: money.format(selectedTotal) })}
+                </span>
               )}
             </p>
             <p className={`text-xs mt-0.5 ${selectionFits ? 'text-success' : 'text-danger'}`}>
               {selectionFits
-                ? `Cabe nesse mês (saldo: ${formatCurrency(availableBalance)})`
-                : `Falta ${formatCurrency(selectedMonthlyTotal - availableBalance)}/mês (saldo: ${formatCurrency(availableBalance)})`}
+                ? t('wishlist.fitsThisMonth', { balance: money.format(availableBalance) })
+                : t('wishlist.shortBy', {
+                    amount: money.format(selectedMonthlyTotal - availableBalance),
+                    balance: money.format(availableBalance),
+                  })}
             </p>
           </div>
           <Button size="sm" variant="secondary" onClick={() => setSelectedIds(new Set())}>
-            Limpar
+            {t('wishlist.clearSelection')}
           </Button>
         </div>
       )}
@@ -157,8 +168,7 @@ export function WishlistPage() {
       {items.length === 0 ? (
         <Card>
           <p className="text-sm text-content-3 text-center py-10">
-            Sua lista está vazia.<br />
-            <span className="text-accent cursor-pointer" onClick={() => setShowAdd(true)}>Adicionar o primeiro item →</span>
+            <span className="text-accent cursor-pointer" onClick={() => setShowAdd(true)}>{t('wishlist.addFirst')}</span>
           </p>
         </Card>
       ) : (
@@ -193,7 +203,7 @@ export function WishlistPage() {
                             </p>
                           </div>
                           <div className="flex items-center gap-3 text-sm">
-                            <span className="font-medium text-accent">{formatCurrency(item.price)}</span>
+                            <span className="font-medium text-accent">{money.formatIn(item.price, item.currency)}</span>
                             {item.url && (
                               <a
                                 href={item.url}
@@ -215,8 +225,8 @@ export function WishlistPage() {
                               size="sm"
                               variant="ghost"
                               onClick={() => handleUndoPurchase(item)}
-                              title="Desfazer compra (remove a transação criada)"
-                              aria-label="Desfazer compra"
+                              title={t('wishlist.undoPurchaseTitle')}
+                              aria-label={t('wishlist.undoPurchase')}
                             >
                               <Undo2 size={14} />
                             </Button>
@@ -225,8 +235,8 @@ export function WishlistPage() {
                               size="sm"
                               variant="ghost"
                               onClick={() => setMarkingPurchased(item)}
-                              title="Marcar como comprado e registrar gasto"
-                              aria-label="Marcar como comprado"
+                              title={t('wishlist.markPurchasedTitle')}
+                              aria-label={t('wishlist.markPurchased')}
                             >
                               <Check size={14} />
                             </Button>
@@ -235,8 +245,8 @@ export function WishlistPage() {
                             size="sm"
                             variant="ghost"
                             onClick={() => setEditing(item)}
-                            title="Editar"
-                            aria-label="Editar"
+                            title={t('common.edit')}
+                            aria-label={t('common.edit')}
                           >
                             <Pencil size={14} />
                           </Button>
@@ -244,8 +254,8 @@ export function WishlistPage() {
                             size="sm"
                             variant="danger"
                             onClick={() => deleteItem(item.id)}
-                            title="Remover item"
-                            aria-label="Remover item"
+                            title={t('wishlist.removeItem')}
+                            aria-label={t('wishlist.removeItem')}
                           >
                             <Trash2 size={14} />
                           </Button>
@@ -260,14 +270,14 @@ export function WishlistPage() {
         ))
       )}
 
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Novo item">
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title={t('wishlist.newItemModal')}>
         <WishlistForm
           onSubmit={data => { addItem(data); setShowAdd(false) }}
           onCancel={() => setShowAdd(false)}
         />
       </Modal>
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title="Editar item">
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={t('wishlist.editItem')}>
         {editing && (
           <WishlistForm
             initial={editing}
