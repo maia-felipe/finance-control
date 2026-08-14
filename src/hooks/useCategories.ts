@@ -5,19 +5,27 @@ import { generateId } from '../utils/generateId'
 import { useAuth } from '../contexts/AuthContext'
 import { persist } from '../lib/persist'
 import { toast } from '../lib/toast'
+import i18n from '../i18n'
+import type { Resources } from '../i18n/locales/en'
 
-type DefaultCategory = Pick<Category, 'name' | 'type' | 'color' | 'icon'>
+type DefaultCategory = Pick<Category, 'type' | 'color' | 'icon'> & {
+  /** Chave em `categories.defaults.*` — o nome gravado é a tradução no idioma ativo. */
+  key: keyof Resources['categories']['defaults']
+}
 
+// Semeadas só para contas novas. O nome é gravado no banco (é dado do usuário,
+// editável depois), então usamos a tradução vigente no momento do seed em vez
+// de traduzir na exibição.
 const DEFAULT_CATEGORIES: DefaultCategory[] = [
-  { name: 'Alimentação', type: 'expense', color: '#f97316', icon: 'utensils' },
-  { name: 'Transporte', type: 'expense', color: '#3b82f6', icon: 'car' },
-  { name: 'Moradia', type: 'expense', color: '#8b5cf6', icon: 'home' },
-  { name: 'Saúde', type: 'expense', color: '#10b981', icon: 'heart-pulse' },
-  { name: 'Lazer', type: 'expense', color: '#ec4899', icon: 'gamepad-2' },
-  { name: 'Educação', type: 'expense', color: '#eab308', icon: 'graduation-cap' },
-  { name: 'Outros', type: 'expense', color: '#6b7280', icon: 'tag' },
-  { name: 'Salário', type: 'income', color: '#16a34a', icon: 'banknote' },
-  { name: 'Freelance', type: 'income', color: '#0d9488', icon: 'laptop' },
+  { key: 'food', type: 'expense', color: '#f97316', icon: 'utensils' },
+  { key: 'transport', type: 'expense', color: '#3b82f6', icon: 'car' },
+  { key: 'housing', type: 'expense', color: '#8b5cf6', icon: 'home' },
+  { key: 'health', type: 'expense', color: '#10b981', icon: 'heart-pulse' },
+  { key: 'leisure', type: 'expense', color: '#ec4899', icon: 'gamepad-2' },
+  { key: 'education', type: 'expense', color: '#eab308', icon: 'graduation-cap' },
+  { key: 'other', type: 'expense', color: '#6b7280', icon: 'tag' },
+  { key: 'salary', type: 'income', color: '#16a34a', icon: 'banknote' },
+  { key: 'freelance', type: 'income', color: '#0d9488', icon: 'laptop' },
 ]
 
 function rowToCategory(row: Record<string, unknown>): Category {
@@ -66,15 +74,16 @@ export function useCategories() {
       .then(async ({ data, error }) => {
         if (error) {
           console.error('loadCategories:', error)
-          toast.error('Não foi possível carregar as categorias.')
+          toast.error(i18n.t('errors.loadCategories'))
           setCategories([])
         } else if (data && data.length > 0) {
           setCategories(data.map(rowToCategory))
         } else {
           // Usuário novo (ou sem categorias) — seed das padrão com IDs únicos
-          const seeded: Category[] = DEFAULT_CATEGORIES.map(c => ({
+          const seeded: Category[] = DEFAULT_CATEGORIES.map(({ key, ...c }) => ({
             ...c,
             id: generateId(),
+            name: i18n.t(`categories.defaults.${key}`),
             excludeFromCharts: false,
           }))
           const rows = seeded.map((c, i) => ({
@@ -84,7 +93,7 @@ export function useCategories() {
           const { error: seedError } = await supabase.from('categories').insert(rows)
           if (seedError) {
             console.error('seedDefaultCategories:', seedError)
-            toast.error('Não foi possível criar as categorias padrão.')
+            toast.error(i18n.t('errors.seedCategories'))
             setCategories([])
           } else {
             setCategories(seeded)
@@ -102,7 +111,7 @@ export function useCategories() {
     if (!user) return ''
     const newCat: Category = { ...data, id: generateId() }
     setCategories(prev => {
-      persist('Não foi possível salvar a categoria.', supabase.from('categories').insert({
+      persist(i18n.t('errors.saveCategory'), supabase.from('categories').insert({
         id: newCat.id, user_id: user.id, name: newCat.name, type: newCat.type,
         color: newCat.color, icon: newCat.icon ?? null, sort_order: prev.length,
         exclude_from_charts: newCat.excludeFromCharts ?? false,
@@ -119,13 +128,13 @@ export function useCategories() {
     const dbData: Record<string, unknown> = { ...rest }
     if (excludeFromCharts !== undefined) dbData.exclude_from_charts = excludeFromCharts
     if (subcategories !== undefined) dbData.subcategories = subcategories
-    persist('Não foi possível atualizar a categoria.',
+    persist(i18n.t('errors.updateCategory'),
       supabase.from('categories').update(dbData).eq('id', id), reload)
   }
 
   const deleteCategory = (id: string) => {
     setCategories(prev => prev.filter(c => c.id !== id))
-    persist('Não foi possível excluir a categoria.',
+    persist(i18n.t('errors.deleteCategory'),
       supabase.from('categories').delete().eq('id', id), reload)
   }
 
@@ -139,7 +148,7 @@ export function useCategories() {
       const final = [...reordered, ...rest]
       // Persist order
       final.forEach((c, i) => {
-        persist('Não foi possível salvar a ordem das categorias.',
+        persist(i18n.t('errors.saveCategoryOrder'),
           supabase.from('categories').update({ sort_order: i }).eq('id', c.id), reload)
       })
       return final

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Wallet } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { ThemeToggle } from '../ui/ThemeToggle'
@@ -10,6 +11,7 @@ type AuthMode = 'login' | 'signup' | 'reset'
 
 export function AuthPage() {
   const { signInWithEmail, signUpWithEmail, signInWithGoogle, resetPassword } = useAuth()
+  const { t } = useTranslation()
   const [mode, setMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -26,14 +28,14 @@ export function AuthPage() {
       const { error: err } = await resetPassword(email)
       setSubmitting(false)
       if (err) setError(err)
-      else setInfo('Enviamos um link de redefinição para seu email.')
+      else setInfo(t('auth.resetLinkSent'))
       return
     }
     const fn = mode === 'login' ? signInWithEmail : signUpWithEmail
     const { error: err } = await fn(email, password)
     setSubmitting(false)
     if (err) setError(err)
-    else if (mode === 'signup') setInfo('Conta criada! Você já pode usar o app.')
+    else if (mode === 'signup') setInfo(t('auth.accountCreated'))
   }
 
   const handleGoogle = async () => {
@@ -60,14 +62,14 @@ export function AuthPage() {
           </div>
           <h1 className="text-2xl font-bold text-content tracking-tight">FinanControl</h1>
           <p className="text-sm text-content-2 mt-1">
-            {mode === 'login' ? 'Entre na sua conta' : mode === 'signup' ? 'Crie sua conta' : 'Redefina sua senha'}
+            {mode === 'login' ? t('auth.signInTitle') : mode === 'signup' ? t('auth.signUpTitle') : t('auth.resetTitle')}
           </p>
         </div>
 
         <Card>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input
-              label="Email"
+              label={t('auth.email')}
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -76,7 +78,7 @@ export function AuthPage() {
             />
             {mode !== 'reset' && (
               <Input
-                label="Senha"
+                label={t('auth.password')}
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -87,7 +89,7 @@ export function AuthPage() {
             {error && <p className="text-sm text-danger">{error}</p>}
             {info && <p className="text-sm text-success">{info}</p>}
             <Button type="submit" disabled={submitting}>
-              {submitting ? 'Aguarde...' : mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Cadastrar' : 'Enviar link de redefinição'}
+              {submitting ? t('common.wait') : mode === 'login' ? t('auth.signIn') : mode === 'signup' ? t('auth.signUp') : t('auth.sendResetLink')}
             </Button>
             {mode === 'login' && (
               <button
@@ -95,7 +97,7 @@ export function AuthPage() {
                 onClick={() => switchMode('reset')}
                 className="text-sm text-content-2 hover:text-accent hover:underline cursor-pointer self-center"
               >
-                Esqueci minha senha
+                {t('auth.forgotPassword')}
               </button>
             )}
           </form>
@@ -103,7 +105,7 @@ export function AuthPage() {
           {mode !== 'reset' && (<>
           <div className="flex items-center gap-3 my-4">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-content-3">ou</span>
+            <span className="text-xs text-content-3">{t('common.or')}</span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
@@ -118,19 +120,19 @@ export function AuthPage() {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Continuar com Google
+            {t('auth.continueWithGoogle')}
           </button>
           </>)}
         </Card>
 
         <p className="text-center text-sm text-content-2 mt-4">
-          {mode === 'login' ? 'Não tem conta? ' : mode === 'signup' ? 'Já tem conta? ' : 'Lembrou a senha? '}
+          {mode === 'login' ? t('auth.noAccount') : mode === 'signup' ? t('auth.hasAccount') : t('auth.rememberedPassword')}
           <button
             type="button"
             onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
             className="text-accent font-medium hover:underline cursor-pointer"
           >
-            {mode === 'login' ? 'Cadastre-se' : 'Faça login'}
+            {mode === 'login' ? t('auth.goSignUp') : t('auth.goSignIn')}
           </button>
         </p>
       </div>

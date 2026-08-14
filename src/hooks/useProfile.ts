@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import type { Profile } from '../types'
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from '../lib/toast'
+import i18n from '../i18n'
 
 interface ProfileState {
   profile: Profile | null
@@ -66,7 +67,7 @@ export function useProfile() {
     const { data, error } = await supabase.functions.invoke('stripe-checkout')
     if (error || !data?.url) {
       console.error('startCheckout:', error)
-      toast.error('Não foi possível iniciar o pagamento. Tente novamente.')
+      toast.error(i18n.t('errors.startCheckout'))
       return
     }
     window.location.href = data.url
