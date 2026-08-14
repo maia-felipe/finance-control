@@ -5,6 +5,10 @@ import { generateId } from '../utils/generateId'
 // por muito tempo) — evita criação em massa descontrolada.
 const MAX_GAP_MONTHS = 12
 
+// A descrição é opcional, então duas séries recorrentes sem descrição na mesma
+// categoria e do mesmo tipo colapsam em uma só. Aceitável: recorrências
+// costumam ser nomeadas, e o efeito é materializar uma ocorrência em vez de
+// duas — nunca duplicar.
 function seriesKey(t: Transaction): string {
   return `${t.type}|${t.categoryId}|${t.description.trim().toLowerCase()}`
 }

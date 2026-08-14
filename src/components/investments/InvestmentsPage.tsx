@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Coins, Pencil, Trash2, Repeat } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Coins, Minus, Pencil, Trash2, Repeat } from 'lucide-react'
 import { useInvestments } from '../../hooks/useInvestments'
 import { useTransactions } from '../../hooks/useTransactions'
 import { useCategories } from '../../hooks/useCategories'
@@ -10,7 +11,7 @@ import { Modal } from '../ui/Modal'
 import { Badge } from '../ui/Badge'
 import { InvestmentForm } from './InvestmentForm'
 import { TransactionForm } from '../transactions/TransactionForm'
-import { formatCurrency, formatUnitPrice } from '../../utils/formatCurrency'
+import { useMoney } from '../../hooks/useMoney'
 import { formatDate, formatMonth, monthFromDate, todayISO } from '../../utils/formatDate'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -45,16 +46,76 @@ function GainBar({ invested, current }: { invested: number; current: number }) {
   )
 }
 
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload?.length) {
-    return (
-      <div className="bg-surface border border-border-subtle rounded-xl shadow-lg px-3 py-2 text-sm">
-        <p className="font-medium text-content">{payload[0].name}</p>
-        <p className="text-content-2">{formatCurrency(payload[0].value)}</p>
+// O Recharts clona o elemento passado em `content`, injetando active/payload e
+// preservando as props já definidas. Definir o componente no módulo (em vez de
+// fabricá-lo em render) evita remontar o tooltip a cada render.
+interface CurrencyTooltipProps {
+  active?: boolean
+  payload?: { name?: string; value?: number }[]
+  format: (value: number) => string
+}
+
+function CurrencyTooltip({ active, payload, format }: CurrencyTooltipProps) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-surface border border-border-subtle rounded-xl shadow-lg px-3 py-2 text-sm">
+      <p className="font-medium text-content">{payload[0].name}</p>
+      <p className="text-content-2">{format(payload[0].value ?? 0)}</p>
+    </div>
+  )
+}
+
+interface EditQuantityModalProps {
+  investment: Investment
+  onSave: (quantity: number) => void
+  onClose: () => void
+}
+
+/**
+ * Em câmbio o valor atual é derivado (quantidade x cotação), então o que faz
+ * sentido editar é quanto você tem — não quanto vale.
+ */
+function EditQuantityModal({ investment, onSave, onClose }: EditQuantityModalProps) {
+  const { t } = useTranslation()
+  const money = useMoney()
+  const held = investment.holdingCurrency ?? investment.currency
+  const [value, setValue] = useState(investment.quantity?.toString() ?? '')
+
+  const qty = parseFloat(value) || 0
+  const marked = money.convertBetweenToday(qty, held, investment.currency)
+
+  return (
+    <Modal open onClose={onClose} title={`${t('investments.editQuantity')} — ${investment.name}`}>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-content">
+            {t('investments.quantityHeld', { currency: held })}
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="any"
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            autoFocus
+            className="border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft"
+          />
+          {marked !== null && (
+            <p className="text-xs text-content-3">
+              {t('investments.marketValueNow', {
+                amount: money.formatIn(marked, investment.currency),
+                date: formatDate(money.latestRateDate),
+              })}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2 justify-end">
+          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button onClick={() => onSave(qty)}>{t('common.save')}</Button>
+        </div>
       </div>
-    )
-  }
-  return null
+    </Modal>
+  )
 }
 
 interface UpdateValueModalProps {
@@ -64,13 +125,15 @@ interface UpdateValueModalProps {
 }
 
 function UpdateValueModal({ investment, onSave, onClose }: UpdateValueModalProps) {
+  const { t } = useTranslation()
+  const money = useMoney()
   const [value, setValue] = useState(investment.currentValue.toFixed(2))
 
   return (
-    <Modal open onClose={onClose} title={`Atualizar valor — ${investment.name}`}>
+    <Modal open onClose={onClose} title={`${t('investments.updateValue')} — ${investment.name}`}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-content">Valor atual (R$)</label>
+          <label className="text-sm font-medium text-content">{t('investments.currentValueLabel', { currency: investment.currency })}</label>
           <input
             type="number"
             min="0"
@@ -80,11 +143,13 @@ function UpdateValueModal({ investment, onSave, onClose }: UpdateValueModalProps
             autoFocus
             className="border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft"
           />
-          <p className="text-xs text-content-3">Aportado: {formatCurrency(investment.amountInvested)}</p>
+          <p className="text-xs text-content-3">
+            {t('investments.investedSoFar', { amount: money.formatIn(investment.amountInvested, investment.currency) })}
+          </p>
         </div>
         <div className="flex gap-2 justify-end">
-          <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button onClick={() => onSave(parseFloat(value) || 0)}>Salvar</Button>
+          <Button variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button onClick={() => onSave(parseFloat(value) || 0)}>{t('common.save')}</Button>
         </div>
       </div>
     </Modal>
@@ -98,6 +163,8 @@ interface AporteModalProps {
 }
 
 function ResgateModal({ investment, onSave, onClose }: AporteModalProps) {
+  const { t } = useTranslation()
+  const money = useMoney()
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(todayISO())
   const [error, setError] = useState('')
@@ -107,15 +174,15 @@ function ResgateModal({ investment, onSave, onClose }: AporteModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!val || val <= 0) { setError('Valor inválido'); return }
+    if (!val || val <= 0) { setError(t('investmentForm.invalidAmount')); return }
     onSave(val, date)
   }
 
   return (
-    <Modal open onClose={onClose} title={`Resgatar — ${investment.name}`}>
+    <Modal open onClose={onClose} title={`${t('investments.registerWithdrawal')} — ${investment.name}`}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">Valor do resgate (R$)</label>
+          <label className="text-sm font-medium text-content">{t('investments.withdrawalAmount', { currency: investment.currency })}</label>
           <input
             type="number"
             min="0.01"
@@ -123,31 +190,33 @@ function ResgateModal({ investment, onSave, onClose }: AporteModalProps) {
             value={amount}
             onChange={e => { setAmount(e.target.value); setError('') }}
             autoFocus
-            placeholder="0,00"
-            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+            placeholder={t('transactionForm.amountPlaceholder')}
+            className="border border-border bg-surface text-content rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft"
           />
-          {error && <p className="text-xs text-red-500">{error}</p>}
+          {error && <p className="text-xs text-danger">{error}</p>}
           {!error && exceedsBalance && (
-            <p className="text-xs text-orange-500">
-              Valor maior que o saldo atual ({formatCurrency(investment.currentValue)}). O saldo será zerado.
+            <p className="text-xs text-warning">
+              {money.formatIn(investment.currentValue, investment.currency)}
             </p>
           )}
-          <p className="text-xs text-slate-400">
-            Aportado: {formatCurrency(investment.amountInvested)} · Atual: {formatCurrency(investment.currentValue)}
+          <p className="text-xs text-content-3">
+            {t('investments.investedSoFar', { amount: money.formatIn(investment.amountInvested, investment.currency) })}
+            {' · '}
+            {money.formatIn(investment.currentValue, investment.currency)}
           </p>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">Data</label>
+          <label className="text-sm font-medium text-content">{t('common.date')}</label>
           <input
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
-            className="border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+            className="border border-border bg-surface text-content rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft"
           />
         </div>
         <div className="flex gap-2 justify-end pt-2">
-          <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit">Registrar resgate</Button>
+          <Button type="button" variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button type="submit">{t('investments.registerWithdrawal')}</Button>
         </div>
       </form>
     </Modal>
@@ -155,6 +224,7 @@ function ResgateModal({ investment, onSave, onClose }: AporteModalProps) {
 }
 
 function AporteModal({ investment, onSave, onClose }: AporteModalProps) {
+  const { t } = useTranslation()
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(todayISO())
   const [error, setError] = useState('')
@@ -162,15 +232,15 @@ function AporteModal({ investment, onSave, onClose }: AporteModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const val = parseFloat(amount)
-    if (!val || val <= 0) { setError('Valor inválido'); return }
+    if (!val || val <= 0) { setError(t('investmentForm.invalidAmount')); return }
     onSave(val, date)
   }
 
   return (
-    <Modal open onClose={onClose} title={`Novo aporte — ${investment.name}`}>
+    <Modal open onClose={onClose} title={`${t('investments.registerContribution')} — ${investment.name}`}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-content">Valor do aporte (R$)</label>
+          <label className="text-sm font-medium text-content">{t('investments.contributionAmount', { currency: investment.currency })}</label>
           <input
             type="number"
             min="0.01"
@@ -178,13 +248,13 @@ function AporteModal({ investment, onSave, onClose }: AporteModalProps) {
             value={amount}
             onChange={e => { setAmount(e.target.value); setError('') }}
             autoFocus
-            placeholder="0,00"
+            placeholder={t('transactionForm.amountPlaceholder')}
             className="border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft"
           />
           {error && <p className="text-xs text-danger">{error}</p>}
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-content">Data</label>
+          <label className="text-sm font-medium text-content">{t('common.date')}</label>
           <input
             type="date"
             value={date}
@@ -193,8 +263,8 @@ function AporteModal({ investment, onSave, onClose }: AporteModalProps) {
           />
         </div>
         <div className="flex gap-2 justify-end pt-2">
-          <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit">Registrar aporte</Button>
+          <Button type="button" variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button type="submit">{t('investments.registerContribution')}</Button>
         </div>
       </form>
     </Modal>
@@ -207,34 +277,62 @@ interface InvestmentsPageProps {
 }
 
 export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) {
+  const { t } = useTranslation()
+  const money = useMoney()
   const { investments, addInvestment, updateInvestment, deleteInvestment } = useInvestments()
   const { getByMonth, addTransaction, updateTransaction, deleteTransaction, deleteByInvestmentId } = useTransactions()
   const { categories, addCategory, getCategoryById } = useCategories()
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<Investment | null>(null)
   const [updatingValue, setUpdatingValue] = useState<Investment | null>(null)
+  const [editingQuantity, setEditingQuantity] = useState<Investment | null>(null)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [aportando, setAportando] = useState<Investment | null>(null)
   const [resgatando, setResgatando] = useState<Investment | null>(null)
 
   const investmentTxs = getByMonth(month)
-    .filter(t => t.type === 'investment' || (t.type === 'income' && !!t.investmentId))
+    .filter(tx => tx.type === 'investment' || (tx.type === 'income' && !!tx.investmentId))
     .sort((a, b) => b.date.localeCompare(a.date))
   const totalInvestedMonth = investmentTxs.reduce(
-    (s, t) => s + (t.type === 'investment' ? t.amount : -t.amount),
+    (sum, tx) => sum + (tx.type === 'investment' ? tx.convertedAmount : -tx.convertedAmount),
     0,
   )
+
+  /**
+   * Custo e valor de mercado de um investimento, na moeda preferida.
+   * O custo usa a cotação da data de início e o valor atual a de hoje, então a
+   * variação cambial aparece dentro do ganho/perda — que é o resultado real de
+   * manter dinheiro em outra moeda.
+   */
+  const inPreferred = (inv: Investment) => ({
+    invested: money.convert(inv.amountInvested, inv.currency, inv.startDate),
+    current: money.convertToday(inv.currentValue, inv.currency),
+  })
 
   const ensureInvestmentCategoryId = (): string => {
     const existing = categories.find(c => c.type === 'investment')
     if (existing) return existing.id
-    return addCategory({ name: 'Investimentos', type: 'investment', color: DEFAULT_INVESTMENT_CATEGORY_COLOR })
+    return addCategory({ name: t('investments.investmentsCategory'), type: 'investment', color: DEFAULT_INVESTMENT_CATEGORY_COLOR })
   }
 
   const ensureResgateCategoryId = (): string => {
-    const existing = categories.find(c => c.name === 'Resgate de Investimento' && c.type === 'income')
+    const withdrawalName = t('investments.withdrawalCategory')
+    const existing = categories.find(c => c.name === withdrawalName && c.type === 'income')
     if (existing) return existing.id
-    return addCategory({ name: 'Resgate de Investimento', type: 'income', color: DEFAULT_RESGATE_CATEGORY_COLOR })
+    return addCategory({ name: withdrawalName, type: 'income', color: DEFAULT_RESGATE_CATEGORY_COLOR })
+  }
+
+  // Aporte/resgate numa posição de câmbio mexe na quantidade de moeda, não só
+  // no valor investido. Converte pela cotação do dia da operação. Devolve {}
+  // para tudo que não é câmbio, para poder ser espalhado sem condicional.
+  const fxQuantityAfter = (
+    inv: Investment, amount: number, date: string, direction: 'buy' | 'sell',
+  ): Partial<Investment> => {
+    if (inv.category !== 'fx' || !inv.holdingCurrency) return {}
+    const units = money.convertBetweenOn(amount, inv.currency, inv.holdingCurrency, date)
+    if (units === null) return {}
+    const current = inv.quantity ?? 0
+    return { quantity: direction === 'buy' ? current + units : Math.max(0, current - units) }
   }
 
   const handleAddInvestment = (data: Omit<Investment, 'id' | 'lastUpdated'>) => {
@@ -244,6 +342,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
       addTransaction({
         date: data.startDate,
         amount: data.amountInvested,
+        currency: data.currency,
         type: 'investment',
         categoryId,
         description: data.name,
@@ -258,14 +357,22 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
 
   const handleAporte = (investmentId: string, amount: number, date: string) => {
     const inv = investments.find(i => i.id === investmentId)!
-    updateInvestment(investmentId, { amountInvested: inv.amountInvested + amount })
+    updateInvestment(investmentId, {
+      amountInvested: inv.amountInvested + amount,
+      // Em câmbio, aportar é comprar moeda: a quantidade tem que subir junto,
+      // ou o preço médio e o valor de mercado ficam incoerentes. Usa a cotação
+      // de mercado do dia; se você pagou com spread, ajuste em "editar
+      // quantidade".
+      ...fxQuantityAfter(inv, amount, date, 'buy'),
+    })
     const categoryId = ensureInvestmentCategoryId()
     addTransaction({
       date,
       amount,
+      currency: inv.currency,
       type: 'investment',
       categoryId,
-      description: `Aporte — ${inv.name}`,
+      description: t('investments.contributionPrefix', { name: inv.name }),
       recurring: false,
       investmentId,
     })
@@ -279,14 +386,16 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
     updateInvestment(investmentId, {
       amountInvested: Math.max(0, inv.amountInvested - amount),
       currentValue: Math.max(0, inv.currentValue - amount),
+      ...fxQuantityAfter(inv, amount, date, 'sell'),
     })
     const categoryId = ensureResgateCategoryId()
     addTransaction({
       date,
       amount,
+      currency: inv.currency,
       type: 'income',
       categoryId,
-      description: `Resgate — ${inv.name}`,
+      description: t('investments.withdrawalPrefix', { name: inv.name }),
       recurring: false,
       investmentId,
     })
@@ -300,19 +409,19 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
     deleteByInvestmentId(id)
   }
 
-  const handleDeleteAporteTx = (t: Transaction) => {
-    deleteTransaction(t.id)
-    if (!t.investmentId) return
-    const inv = investments.find(i => i.id === t.investmentId)
+  const handleDeleteAporteTx = (tx: Transaction) => {
+    deleteTransaction(tx.id)
+    if (!tx.investmentId) return
+    const inv = investments.find(i => i.id === tx.investmentId)
     if (!inv) return
-    if (t.type === 'investment') {
-      updateInvestment(t.investmentId, {
-        amountInvested: Math.max(0, inv.amountInvested - t.amount),
+    if (tx.type === 'investment') {
+      updateInvestment(tx.investmentId, {
+        amountInvested: Math.max(0, inv.amountInvested - tx.amount),
       })
-    } else if (t.type === 'income') {
-      updateInvestment(t.investmentId, {
-        amountInvested: inv.amountInvested + t.amount,
-        currentValue: inv.currentValue + t.amount,
+    } else if (tx.type === 'income') {
+      updateInvestment(tx.investmentId, {
+        amountInvested: inv.amountInvested + tx.amount,
+        currentValue: inv.currentValue + tx.amount,
       })
     }
   }
@@ -325,8 +434,8 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
     if (txMonth !== month) onMonthChange(txMonth)
   }
 
-  const totalInvested = investments.reduce((s, inv) => s + inv.amountInvested, 0)
-  const totalCurrent = investments.reduce((s, inv) => s + inv.currentValue, 0)
+  const totalInvested = investments.reduce((sum, inv) => sum + inPreferred(inv).invested, 0)
+  const totalCurrent = investments.reduce((sum, inv) => sum + inPreferred(inv).current, 0)
   const totalGain = totalCurrent - totalInvested
   const totalGainPct = totalInvested > 0 ? ((totalCurrent / totalInvested) - 1) * 100 : 0
 
@@ -334,8 +443,10 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
   const categoryData = Object.values(
     investments.reduce<Record<string, { name: string; value: number; color: string }>>(
       (acc, inv) => {
-        if (!acc[inv.category]) acc[inv.category] = { name: inv.category, value: 0, color: inv.color }
-        acc[inv.category].value += inv.currentValue
+        if (!acc[inv.category]) {
+          acc[inv.category] = { name: t(`investments.categories.${inv.category}`), value: 0, color: inv.color }
+        }
+        acc[inv.category].value += inPreferred(inv).current
         return acc
       }, {}
     )
@@ -344,17 +455,17 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-content">Investimentos</h1>
-        <Button onClick={() => setShowAdd(true)}>+ Novo investimento</Button>
+        <h1 className="text-2xl font-bold tracking-tight text-content">{t('investments.title')}</h1>
+        <Button onClick={() => setShowAdd(true)}>+ {t('common.add')}</Button>
       </div>
 
       {/* Summary cards */}
       <div className="flex gap-3 mb-6 flex-wrap">
-        <SummaryCard label="Total aportado" value={formatCurrency(totalInvested)} color="text-content" />
-        <SummaryCard label="Valor atual" value={formatCurrency(totalCurrent)} color="text-accent" />
+        <SummaryCard label={t('investments.totalInvested')} value={money.format(totalInvested)} color="text-content" />
+        <SummaryCard label={t('investments.currentValue')} value={money.format(totalCurrent)} color="text-accent" />
         <SummaryCard
-          label={totalGain >= 0 ? 'Ganho total' : 'Perda total'}
-          value={`${totalGain >= 0 ? '+' : ''}${formatCurrency(totalGain)}`}
+          label={t('investments.gainLoss')}
+          value={`${totalGain >= 0 ? '+' : ''}${money.format(totalGain)}`}
           color={totalGain >= 0 ? 'text-success' : 'text-danger'}
           sub={`${totalGainPct >= 0 ? '+' : ''}${totalGainPct.toFixed(2)}%`}
         />
@@ -363,8 +474,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
       {investments.length === 0 ? (
         <Card>
           <p className="text-sm text-content-3 text-center py-10">
-            Nenhum investimento cadastrado ainda.<br />
-            <span className="text-accent cursor-pointer" onClick={() => setShowAdd(true)}>Adicionar o primeiro →</span>
+            <span className="text-accent cursor-pointer" onClick={() => setShowAdd(true)}>{t('investments.addFirst')}</span>
           </p>
         </Card>
       ) : (
@@ -372,9 +482,11 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
           {/* Investment list — spans 2 cols */}
           <div className="md:col-span-2 flex flex-col gap-3">
             {investments.map(inv => {
-              const gain = inv.currentValue - inv.amountInvested
-              const gainPct = inv.amountInvested > 0 ? ((inv.currentValue / inv.amountInvested) - 1) * 100 : 0
+              const { invested, current } = inPreferred(inv)
+              const gain = current - invested
+              const gainPct = invested > 0 ? ((current / invested) - 1) * 100 : 0
               const isPositive = gain >= 0
+              const isForeign = inv.currency !== money.preferredCurrency
               return (
                 <Card key={inv.id}>
                   <div className="flex items-start justify-between gap-3">
@@ -383,61 +495,87 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-content truncate">{inv.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <Badge color={inv.color} label={inv.category} />
-                          <span className="text-xs text-content-3">desde {formatDate(inv.startDate)}</span>
+                          <Badge color={inv.color} label={t(`investments.categories.${inv.category}`)} />
+                          <span className="text-xs text-content-3">{t('investments.since', { date: formatDate(inv.startDate) })}</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
+<<<<<<< HEAD
                       <Button size="sm" variant="ghost" onClick={() => setAportando(inv)} title="Registrar aporte">+ Aporte</Button>
                       <Button size="sm" variant="ghost" onClick={() => setResgatando(inv)} title="Registrar resgate" className="text-danger hover:bg-danger-soft">− Resgatar</Button>
                       <Button size="sm" variant="ghost" onClick={() => setUpdatingValue(inv)} title="Atualizar valor" aria-label="Atualizar valor"><Coins size={14} /></Button>
                       <Button size="sm" variant="ghost" onClick={() => setEditing(inv)} title="Editar" aria-label="Editar"><Pencil size={14} /></Button>
                       <Button size="sm" variant="danger" onClick={() => handleDeleteInvestment(inv.id)} title="Excluir" aria-label="Excluir"><Trash2 size={14} /></Button>
+=======
+                      <Button size="sm" variant="ghost" onClick={() => setAportando(inv)} title={t('investments.registerContribution')}>+</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setResgatando(inv)} title={t('investments.registerWithdrawal')} aria-label={t('investments.registerWithdrawal')}><Minus size={14} /></Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => (inv.category === 'fx' ? setEditingQuantity(inv) : setUpdatingValue(inv))}
+                        title={inv.category === 'fx' ? t('investments.editQuantity') : t('investments.updateValue')}
+                        aria-label={inv.category === 'fx' ? t('investments.editQuantity') : t('investments.updateValue')}
+                      ><Coins size={14} /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditing(inv)} title={t('common.edit')} aria-label={t('common.edit')}><Pencil size={14} /></Button>
+                      <Button size="sm" variant="danger" onClick={() => handleDeleteInvestment(inv.id)} title={t('common.delete')} aria-label={t('common.delete')}><Trash2 size={14} /></Button>
+>>>>>>> dev
                     </div>
                   </div>
 
                   <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
                     <div>
-                      <p className="text-xs text-content-3 mb-0.5">Aportado</p>
-                      <p className="font-medium text-content">{formatCurrency(inv.amountInvested)}</p>
+                      <p className="text-xs text-content-3 mb-0.5">{t('investments.invested')}</p>
+                      <p className="font-medium text-content">{money.format(invested)}</p>
+                      {isForeign && (
+                        <p className="text-xs text-content-3">{money.formatIn(inv.amountInvested, inv.currency)}</p>
+                      )}
                     </div>
                     <div>
-                      <p className="text-xs text-content-3 mb-0.5">Valor atual</p>
-                      <p className="font-medium text-accent">{formatCurrency(inv.currentValue)}</p>
+                      <p className="text-xs text-content-3 mb-0.5">{t('investments.currentValue')}</p>
+                      <p className="font-medium text-accent">{money.format(current)}</p>
+                      {isForeign && (
+                        <p className="text-xs text-content-3">{money.formatIn(inv.currentValue, inv.currency)}</p>
+                      )}
                     </div>
                     <div>
-                      <p className="text-xs text-content-3 mb-0.5">Ganho/Perda</p>
+                      <p className="text-xs text-content-3 mb-0.5">{t('investments.gainLoss')}</p>
                       <p className={`font-semibold ${isPositive ? 'text-success' : 'text-danger'}`}>
-                        {isPositive ? '+' : ''}{formatCurrency(gain)}
+                        {isPositive ? '+' : ''}{money.format(gain)}
                         <span className="text-xs font-normal ml-1">({isPositive ? '+' : ''}{gainPct.toFixed(2)}%)</span>
                       </p>
                     </div>
                   </div>
 
-                  {inv.category === 'Câmbio' && inv.quantity && inv.quantity > 0 && (
+                  {inv.category === 'fx' && inv.quantity && inv.quantity > 0 && (
                     <div className="mt-2 grid grid-cols-3 gap-3 text-sm border-t border-border pt-2">
                       <div>
-                        <p className="text-xs text-content-3 mb-0.5">Quantidade</p>
+                        <p className="text-xs text-content-3 mb-0.5">{t('investments.quantity')}</p>
                         <p className="font-medium text-content">{inv.quantity}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-content-3 mb-0.5">Preço de compra</p>
-                        <p className="font-medium text-content">{formatUnitPrice(inv.amountInvested / inv.quantity)}</p>
+                        <p className="text-xs text-content-3 mb-0.5">{t('investments.purchasePrice')}</p>
+                        <p className="font-medium text-content">{money.formatUnit(inv.amountInvested / inv.quantity, inv.currency)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-content-3 mb-0.5">Preço atual</p>
-                        <p className="font-medium text-content">{formatUnitPrice(inv.currentValue / inv.quantity)}</p>
+                        <p className="text-xs text-content-3 mb-0.5">{t('investments.currentPrice')}</p>
+                        <p className="font-medium text-content">{money.formatUnit(inv.currentValue / inv.quantity, inv.currency)}</p>
                       </div>
                     </div>
                   )}
 
-                  <GainBar invested={inv.amountInvested} current={inv.currentValue} />
+                  <GainBar invested={invested} current={current} />
 
                   {inv.notes && (
                     <p className="text-xs text-content-3 mt-2 italic">{inv.notes}</p>
                   )}
-                  <p className="text-xs text-content-3 mt-1">Atualizado em {formatDate(inv.lastUpdated)}</p>
+                  {/* Câmbio se atualiza sozinho: mostra a data da cotação, não
+                      a da última edição manual. */}
+                  <p className="text-xs text-content-3 mt-1">
+                    {inv.category === 'fx' && inv.holdingCurrency
+                      ? t('investments.marketRateOn', { date: formatDate(money.latestRateDate) })
+                      : t('investments.updatedOn', { date: formatDate(inv.lastUpdated) })}
+                  </p>
                 </Card>
               )
             })}
@@ -446,7 +584,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
           {/* Donut chart — 1 col */}
           <div className="flex flex-col gap-4">
             <Card>
-              <p className="text-sm font-semibold text-content mb-3">Alocação atual</p>
+              <p className="text-sm font-semibold text-content mb-3">{t('investments.allocation')}</p>
               <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie data={categoryData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={2}>
@@ -454,7 +592,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                       <Cell key={i} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={<CurrencyTooltip format={money.format} />} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex flex-col gap-1.5 mt-2">
@@ -464,7 +602,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
                       <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
                       {d.name}
                     </div>
-                    <span className="text-content-2">{formatCurrency(d.value)}</span>
+                    <span className="text-content-2">{money.format(d.value)}</span>
                   </div>
                 ))}
               </div>
@@ -476,6 +614,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
       {/* Aportes e resgates do mês */}
       <div className="mt-6">
         <div className="mb-3">
+<<<<<<< HEAD
           <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">Aportes e resgates — <span className="capitalize">{formatMonth(month)}</span></h2>
           <p className={`text-sm font-semibold mt-0.5 ${totalInvestedMonth >= 0 ? 'text-accent' : 'text-danger'}`}>
             {totalInvestedMonth >= 0 ? '' : '− '}{formatCurrency(Math.abs(totalInvestedMonth))}
@@ -484,31 +623,49 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
         <Card className="!p-0 overflow-hidden">
           {investmentTxs.length === 0 ? (
             <p className="text-sm text-content-3 text-center py-8">Nenhum aporte ou resgate registrado neste mês.</p>
+=======
+          <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">{t('investments.contributionsIn', { month: formatMonth(month) })}</h2>
+          <p className="text-sm font-semibold text-accent mt-0.5">{money.format(totalInvestedMonth)}</p>
+        </div>
+        <Card className="!p-0 overflow-hidden">
+          {investmentTxs.length === 0 ? (
+            <p className="text-sm text-content-3 text-center py-8">{t('transactions.noExpenses')}</p>
+>>>>>>> dev
           ) : (
             <div className="divide-y divide-border-subtle">
-              {investmentTxs.map(t => {
-                const cat = getCategoryById(t.categoryId)
-                const isResgate = t.type === 'income'
+              {investmentTxs.map(tx => {
+                const cat = getCategoryById(tx.categoryId)
+                const isResgate = tx.type === 'income'
                 return (
-                  <div key={t.id} className="flex items-center justify-between px-5 py-3.5">
+                  <div key={tx.id} className="flex items-center justify-between px-5 py-3.5">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-2 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: cat?.color ?? '#8b5cf6' }} />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-content truncate">{t.description}</p>
+                        <p className="text-sm font-medium text-content truncate">{tx.description || cat?.name || '—'}</p>
                         <p className="text-xs text-content-3">
-                          {formatDate(t.date)} · {cat?.name ?? '—'}
-                          {t.recurring && <> · <Repeat size={11} className="inline" aria-label="Recorrente" /></>}
+                          {formatDate(tx.date)}
+                          {tx.description ? <> · {cat?.name ?? '—'}</> : null}
+                          {tx.recurring && <> · <Repeat size={11} className="inline" aria-label={t('common.recurring')} /></>}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+<<<<<<< HEAD
                       <span className={`text-sm font-semibold ${isResgate ? 'text-danger' : 'text-accent'}`}>
                         {isResgate ? '− ' : ''}{formatCurrency(t.amount)}
                       </span>
                       <span className={`text-sm font-semibold ${isResgate ? 'text-danger' : 'text-accent'}`}>{isResgate ? '− ' : ''}{formatCurrency(t.amount)}</span>
+=======
+                      <span className={`text-sm font-semibold text-right ${isResgate ? 'text-danger' : 'text-accent'}`}>
+                        {isResgate ? '− ' : ''}{money.formatIn(tx.amount, tx.currency)}
+                        {tx.currency !== money.preferredCurrency && (
+                          <span className="block text-xs font-normal text-content-3">≈ {money.format(tx.convertedAmount)}</span>
+                        )}
+                      </span>
+>>>>>>> dev
                       <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => setEditingTx(t)} title="Editar" aria-label="Editar"><Pencil size={14} /></Button>
-                        <Button size="sm" variant="danger" onClick={() => handleDeleteAporteTx(t)} title="Excluir" aria-label="Excluir"><Trash2 size={14} /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditingTx(tx)} title={t('common.edit')} aria-label={t('common.edit')}><Pencil size={14} /></Button>
+                        <Button size="sm" variant="danger" onClick={() => handleDeleteAporteTx(tx)} title={t('common.delete')} aria-label={t('common.delete')}><Trash2 size={14} /></Button>
                       </div>
                     </div>
                   </div>
@@ -519,7 +676,7 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
         </Card>
       </div>
 
-      <Modal open={!!editingTx} onClose={() => setEditingTx(null)} title="Editar aporte/resgate">
+      <Modal open={!!editingTx} onClose={() => setEditingTx(null)} title={t('common.edit')}>
         {editingTx && (
           <TransactionForm
             initial={editingTx}
@@ -529,14 +686,14 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
         )}
       </Modal>
 
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Novo investimento">
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title={t('investments.title')}>
         <InvestmentForm
           onSubmit={handleAddInvestment}
           onCancel={() => setShowAdd(false)}
         />
       </Modal>
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title="Editar investimento">
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={t('common.edit')}>
         {editing && (
           <InvestmentForm
             initial={editing}
@@ -545,6 +702,14 @@ export function InvestmentsPage({ month, onMonthChange }: InvestmentsPageProps) 
           />
         )}
       </Modal>
+
+      {editingQuantity && (
+        <EditQuantityModal
+          investment={editingQuantity}
+          onSave={quantity => { updateInvestment(editingQuantity.id, { quantity }); setEditingQuantity(null) }}
+          onClose={() => setEditingQuantity(null)}
+        />
+      )}
 
       {updatingValue && (
         <UpdateValueModal

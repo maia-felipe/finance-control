@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import i18n from '../i18n'
 
 interface AuthResult {
   error?: string
@@ -58,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
       // Garante que não fique uma sessão "fantasma" do usuário existente
       await supabase.auth.signOut()
-      return { error: 'Este email já está cadastrado. Faça login.' }
+      return { error: i18n.t('auth.emailAlreadyRegistered') }
     }
     return {}
   }

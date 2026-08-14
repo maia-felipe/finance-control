@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import type { Category, CategoryType } from '../../types'
 import { Input } from '../ui/Input'
@@ -19,6 +20,7 @@ interface CategoryFormProps {
 }
 
 export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps) {
+  const { t } = useTranslation()
   const [name, setName] = useState(initial?.name ?? '')
   const [type, setType] = useState<CategoryType>(initial?.type ?? 'expense')
   const [color, setColor] = useState(initial?.color ?? PRESET_COLORS[0])
@@ -52,32 +54,32 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) { setError('Nome é obrigatório'); return }
+    if (!name.trim()) { setError(t('categoryForm.nameRequired')); return }
     onSubmit({ name: name.trim(), type, color, icon, excludeFromCharts, subcategories })
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <Input
-        label="Nome da categoria"
+        label={t('categoryForm.nameLabel')}
         value={name}
         onChange={e => { setName(e.target.value); setError('') }}
         error={error}
-        placeholder="Ex: Academia"
+        placeholder={t('categoryForm.namePlaceholder')}
         autoFocus
       />
       <Select
-        label="Tipo"
+        label={t('common.type')}
         value={type}
         onChange={e => setType(e.target.value as CategoryType)}
       >
-        <option value="expense">Gasto</option>
-        <option value="income">Receita</option>
-        <option value="investment">Investimento</option>
-        <option value="both">Ambos</option>
+        <option value="expense">{t('txType.expense')}</option>
+        <option value="income">{t('txType.income')}</option>
+        <option value="investment">{t('txType.investment')}</option>
+        <option value="both">{t('txType.both')}</option>
       </Select>
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-content">Cor</label>
+        <label className="text-sm font-medium text-content">{t('categoryForm.color')}</label>
         <div className="flex gap-2 flex-wrap">
           {PRESET_COLORS.map(c => (
             <button
@@ -91,7 +93,7 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-content">Ícone</label>
+        <label className="text-sm font-medium text-content">{t('categoryForm.icon')}</label>
         <div className="flex gap-1.5 flex-wrap">
           {Object.entries(CATEGORY_ICONS).map(([key, Icon]) => (
             <button
@@ -117,12 +119,12 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
           onChange={e => setExcludeFromCharts(e.target.checked)}
           className="w-4 h-4 rounded accent-primary"
         />
-        <span className="text-sm text-content-2">Ocultar dos gráficos de gastos</span>
+        <span className="text-sm text-content-2">{t('categoryForm.hideFromCharts')}</span>
       </label>
 
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-content">
-          Subcategorias <span className="text-content-3 font-normal">(opcional)</span>
+          {t('categoryForm.subcategories')} <span className="text-content-3 font-normal">({t('common.optional')})</span>
         </label>
         <div className="flex gap-2">
           <input
@@ -130,11 +132,11 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
             value={newSub}
             onChange={e => setNewSub(e.target.value)}
             onKeyDown={handleSubKeyDown}
-            placeholder="Ex: Tech, Livros"
+            placeholder={t('categoryForm.subcategoryPlaceholder')}
             className="flex-1 border border-border bg-surface text-content placeholder:text-content-3 rounded-lg px-3 py-2 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent-soft transition"
           />
           <Button type="button" variant="secondary" onClick={handleAddSubcategory}>
-            Adicionar
+            {t('common.add')}
           </Button>
         </div>
         {subcategories.length > 0 && (
@@ -149,7 +151,7 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
                   type="button"
                   onClick={() => handleRemoveSubcategory(sub)}
                   className="text-content-3 hover:text-danger cursor-pointer transition"
-                  aria-label={`Remover ${sub}`}
+                  aria-label={t('categoryForm.removeSubcategory', { name: sub })}
                 >
                   <X size={12} />
                 </button>
@@ -157,12 +159,12 @@ export function CategoryForm({ initial, onSubmit, onCancel }: CategoryFormProps)
             ))}
           </div>
         )}
-        <p className="text-xs text-content-3">Enter para adicionar. Essas opções aparecerão na lista de desejos.</p>
+        <p className="text-xs text-content-3">{t('categoryForm.subcategoryHint')}</p>
       </div>
 
       <div className="flex gap-2 justify-end pt-2">
-        <Button type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit">Salvar</Button>
+        <Button type="button" variant="secondary" onClick={onCancel}>{t('common.cancel')}</Button>
+        <Button type="submit">{t('common.save')}</Button>
       </div>
     </form>
   )
