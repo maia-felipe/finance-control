@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   DndContext,
   closestCenter,
@@ -31,6 +32,7 @@ interface SortableItemProps {
 }
 
 function SortableItem({ category, onEdit, onDelete }: SortableItemProps) {
+  const { t } = useTranslation()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: category.id,
   })
@@ -53,7 +55,7 @@ function SortableItem({ category, onEdit, onDelete }: SortableItemProps) {
           {...attributes}
           {...listeners}
           className="text-content-3 hover:text-content-2 cursor-grab active:cursor-grabbing touch-none px-0.5"
-          aria-label="Arrastar para reordenar"
+          aria-label={t('common.dragToReorder')}
         >
           <GripVertical size={15} />
         </button>
@@ -61,8 +63,8 @@ function SortableItem({ category, onEdit, onDelete }: SortableItemProps) {
         <span className="text-sm font-medium text-content">{category.name}</span>
       </div>
       <div className="flex gap-1">
-        <Button size="sm" variant="ghost" onClick={() => onEdit(category)}>Editar</Button>
-        <Button size="sm" variant="danger" onClick={() => onDelete(category.id)}>Remover</Button>
+        <Button size="sm" variant="ghost" onClick={() => onEdit(category)}>{t('common.edit')}</Button>
+        <Button size="sm" variant="danger" onClick={() => onDelete(category.id)}>{t('common.remove')}</Button>
       </div>
     </div>
   )
@@ -110,7 +112,12 @@ function SortableSection({ title, categories, onReorder, onEdit, onDelete, empty
   )
 }
 
-export function CategoriesPage() {
+/**
+ * Gestão de categorias. Vive dentro da página de Configurações — deixou de ser
+ * uma aba própria, por isso não tem título nem padding de página.
+ */
+export function CategoriesSection() {
+  const { t } = useTranslation()
   const { categories, addCategory, updateCategory, deleteCategory, reorderCategories } = useCategories()
   const { retypeByCategory } = useTransactions()
   const [showAdd, setShowAdd] = useState(false)
@@ -136,14 +143,12 @@ export function CategoriesPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold tracking-tight text-content mb-6">Categorias</h1>
-
+    <div>
       <div className="grid md:grid-cols-2 gap-6 items-start">
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">Gastos</h2>
-            <Button size="sm" variant="secondary" onClick={() => handleAdd('expense')}>+ Adicionar</Button>
+            <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">{t('categories.expenses')}</h2>
+            <Button size="sm" variant="secondary" onClick={() => handleAdd('expense')}>+ {t('common.add')}</Button>
           </div>
           <SortableSection
             title=""
@@ -151,14 +156,14 @@ export function CategoriesPage() {
             onReorder={ids => reorderCategories([...ids, ...incomeCategories.map(c => c.id), ...investmentCategories.map(c => c.id)])}
             onEdit={setEditing}
             onDelete={deleteCategory}
-            emptyMsg="Nenhuma categoria de gasto."
+            emptyMsg={t('categories.noExpenseCategories')}
           />
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">Receitas</h2>
-            <Button size="sm" variant="secondary" onClick={() => handleAdd('income')}>+ Adicionar</Button>
+            <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">{t('categories.income')}</h2>
+            <Button size="sm" variant="secondary" onClick={() => handleAdd('income')}>+ {t('common.add')}</Button>
           </div>
           <SortableSection
             title=""
@@ -166,14 +171,14 @@ export function CategoriesPage() {
             onReorder={ids => reorderCategories([...expenseCategories.map(c => c.id), ...ids, ...investmentCategories.map(c => c.id)])}
             onEdit={setEditing}
             onDelete={deleteCategory}
-            emptyMsg="Nenhuma categoria de receita."
+            emptyMsg={t('categories.noIncomeCategories')}
           />
         </div>
 
         <div className="md:col-span-2">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">Investimentos</h2>
-            <Button size="sm" variant="secondary" onClick={() => handleAdd('investment')}>+ Adicionar</Button>
+            <h2 className="text-sm font-semibold text-content-2 uppercase tracking-wide">{t('categories.investments')}</h2>
+            <Button size="sm" variant="secondary" onClick={() => handleAdd('investment')}>+ {t('common.add')}</Button>
           </div>
           <SortableSection
             title=""
@@ -181,12 +186,12 @@ export function CategoriesPage() {
             onReorder={ids => reorderCategories([...expenseCategories.map(c => c.id), ...incomeCategories.map(c => c.id), ...ids])}
             onEdit={setEditing}
             onDelete={deleteCategory}
-            emptyMsg="Nenhuma categoria de investimento."
+            emptyMsg={t('categories.noInvestmentCategories')}
           />
         </div>
       </div>
 
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Nova categoria">
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title={t('categories.newCategory')}>
         <CategoryForm
           initial={{ type: addType }}
           onSubmit={data => { addCategory(data); setShowAdd(false) }}
@@ -194,7 +199,7 @@ export function CategoriesPage() {
         />
       </Modal>
 
-      <Modal open={!!editing} onClose={() => setEditing(null)} title="Editar categoria">
+      <Modal open={!!editing} onClose={() => setEditing(null)} title={t('categories.editCategory')}>
         {editing && (
           <CategoryForm
             initial={editing}
