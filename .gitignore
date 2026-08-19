@@ -28,8 +28,10 @@ dist-ssr
 *.sln
 *.sw?
 
-# Claude Code MCP config (local dev tooling, not part of the app)
+# Claude config (local dev tooling, not part of the app)
 .mcp.json
+.claude/
+CLAUDE.md
 
 # Local Backups
 backup/
